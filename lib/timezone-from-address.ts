@@ -1,7 +1,6 @@
 /**
  * US state (2-letter) to time zone for display.
- * Returns one of: Central, Mountain, Pacific, Alaska, Hawaii-Aleutian.
- * Eastern and other regions return null (not in sales panel list).
+ * Covers all US states + DC.
  */
 const STATE_TO_TIMEZONE: Record<string, string> = {
   // Hawaii-Aleutian
@@ -41,7 +40,26 @@ const STATE_TO_TIMEZONE: Record<string, string> = {
   IN: "Central Standard Time",
   KY: "Central Standard Time",
   FL: "Central Standard Time",
-  // Eastern and others not in list → return null
+  // Eastern
+  CT: "Eastern Standard Time",
+  DE: "Eastern Standard Time",
+  GA: "Eastern Standard Time",
+  ME: "Eastern Standard Time",
+  MD: "Eastern Standard Time",
+  MA: "Eastern Standard Time",
+  MI: "Eastern Standard Time",
+  NH: "Eastern Standard Time",
+  NJ: "Eastern Standard Time",
+  NY: "Eastern Standard Time",
+  NC: "Eastern Standard Time",
+  OH: "Eastern Standard Time",
+  PA: "Eastern Standard Time",
+  RI: "Eastern Standard Time",
+  SC: "Eastern Standard Time",
+  VT: "Eastern Standard Time",
+  VA: "Eastern Standard Time",
+  WV: "Eastern Standard Time",
+  DC: "Eastern Standard Time",
 };
 
 export function getTimezoneFromAddress(state?: string | null, _zipCode?: string | null): string | null {
