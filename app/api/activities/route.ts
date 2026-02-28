@@ -145,8 +145,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (String(actionType).trim() === "sent_proposal" && proposalData && typeof proposalData === "object") {
-      const pd = proposalData as { amount?: string; issues?: unknown[]; geo?: string; impressions?: number };
+      const pd = proposalData as { amount?: string; issues?: { issue: string; year: string; specialFeatures: string }[]; geo?: string; impressions?: number };
       const proposalId = uuid();
+      const issuesVal = Array.isArray(pd.issues) ? (pd.issues as { issue: string; year: string; specialFeatures: string }[]) : null;
       await db.insert(proposals).values({
         id: proposalId,
         companyType: String(companyType).trim(),
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
         contactId: String(contactId).trim(),
         salesAgent: username,
         amount: pd.amount != null ? String(pd.amount).trim() : null,
-        issues: Array.isArray(pd.issues) ? pd.issues : null,
+        issues: issuesVal,
         geo: pd.geo != null ? String(pd.geo).trim() : null,
         impressions:
           pd.impressions != null && Number.isInteger(Number(pd.impressions))
