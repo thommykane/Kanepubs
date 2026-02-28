@@ -26,7 +26,7 @@ type Activity = {
   actionType: string;
   notes: string | null;
   meetingAt: string | null;
-  proposalData: unknown;
+  proposalData: Record<string, unknown> | null;
   createdAt: string;
   contactFirstName?: string | null;
   contactLastName?: string | null;
@@ -175,11 +175,13 @@ export default function AllActivityPage() {
                       {formatDate(a.meetingAt)}
                     </div>
                   )}
-                  {a.actionType === "sent_proposal" && a.proposalData && typeof a.proposalData === "object" && (
-                    <div style={{ color: "var(--gold-dim)", marginTop: "4px", fontSize: "0.75rem" }}>
-                      {JSON.stringify(a.proposalData)}
-                    </div>
-                  )}
+                  {a.actionType === "sent_proposal" && a.proposalData != null && typeof a.proposalData === "object"
+                    ? (
+                        <div style={{ color: "var(--gold-dim)", marginTop: "4px", fontSize: "0.75rem" }}>
+                          {String(JSON.stringify(a.proposalData))}
+                        </div>
+                      )
+                    : null}
                   {a.actionType !== "scheduled_meeting" && a.actionType !== "sent_proposal" && a.notes && (
                     <div style={{ color: "var(--gold-dim)", marginTop: "2px" }}>{a.notes}</div>
                   )}
