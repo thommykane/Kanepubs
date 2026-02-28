@@ -151,6 +151,12 @@ export default function AllActivityPage() {
                 label: a.actionType,
                 style: { color: "var(--gold-bright)" },
               };
+              const amountVal = a.actionType === "sold" && a.proposalData != null && typeof a.proposalData === "object" && a.proposalData.amount != null
+                ? Number(a.proposalData.amount)
+                : null;
+              const amountLabel = amountVal != null && !Number.isNaN(amountVal)
+                ? ` $${amountVal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : "";
               return (
                 <li
                   key={a.id}
@@ -161,7 +167,7 @@ export default function AllActivityPage() {
                     fontSize: "0.8rem",
                   }}
                 >
-                  <span style={config.style}>{config.label}</span>
+                  <span style={config.style}>{config.label}{amountLabel}</span>
                   <div style={{ color: "var(--gold-dim)", marginTop: "2px" }}>
                     <Link
                       href={companyHref(a)}

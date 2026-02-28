@@ -87,6 +87,7 @@ export async function PATCH(
         .update(proposals)
         .set({ status: "sold", matDue: matDueVal, statusUpdatedAt: new Date(), assignedTo: proposal.salesAgent })
         .where(eq(proposals.id, id));
+      const saleAmount = proposal.amount != null ? Number(proposal.amount) : 0;
       await db.insert(activities).values({
         id: uuid(),
         companyType: proposal.companyType,
@@ -94,16 +95,23 @@ export async function PATCH(
         contactId: proposal.contactId,
         username,
         actionType: "sold",
+        proposalData: { amount: proposal.amount != null ? String(proposal.amount) : null },
       });
 
       // Add sale amount to Money Spent and increment Transactions on the business or organization
-      const saleAmount = proposal.amount != null ? Number(proposal.amount) : 0;
       if (proposal.companyType === "business") {
-        const [b] = await db
+        let b = (await db
           .select()
           .from(businesses)
           .where(eq(businesses.displayId, proposal.companyDisplayId))
-          .limit(1);
+          .limit(1))[0];
+        if (!b) {
+          b = (await db
+            .select()
+            .from(businesses)
+            .where(eq(businesses.id, proposal.companyDisplayId))
+            .limit(1))[0];
+        }
         if (b) {
           const currentMoney = b.moneySpent != null ? Number(b.moneySpent) : 0;
           const currentTx = b.transactions ?? 0;
@@ -116,11 +124,18 @@ export async function PATCH(
             .where(eq(businesses.id, b.id));
         }
       } else if (proposal.companyType === "org") {
-        const [o] = await db
+        let o = (await db
           .select()
           .from(organizations)
           .where(eq(organizations.displayId, proposal.companyDisplayId))
-          .limit(1);
+          .limit(1))[0];
+        if (!o) {
+          o = (await db
+            .select()
+            .from(organizations)
+            .where(eq(organizations.id, proposal.companyDisplayId))
+            .limit(1))[0];
+        }
         if (o) {
           const currentMoney = o.moneySpent != null ? Number(o.moneySpent) : 0;
           const currentTx = o.transactions ?? 0;
