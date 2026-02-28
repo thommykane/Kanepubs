@@ -482,7 +482,7 @@ export default function AllOrganizationsPage() {
                   <td style={tdStyle}>
                     {o.website ? (
                       <a
-                        href={normalizeWebsiteUrl(o.website) ?? o.website}
+                        href={normalizeWebsiteUrl(o.website) ?? o.website ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: "#2563eb" }}

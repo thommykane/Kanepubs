@@ -117,7 +117,7 @@ export default async function BusinessDetailPage({ params }: Props) {
             <span style={labelStyle}>Website</span>
             {business.website ? (
               <a
-                href={normalizeWebsiteUrl(business.website) ?? business.website}
+                href={normalizeWebsiteUrl(business.website) ?? business.website ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "#2563eb" }}

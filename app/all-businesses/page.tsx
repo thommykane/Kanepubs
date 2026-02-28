@@ -499,7 +499,7 @@ export default function AllBusinessesPage() {
                   <td style={tdStyle}>
                     {b.website ? (
                       <a
-                        href={normalizeWebsiteUrl(b.website) ?? b.website}
+                        href={normalizeWebsiteUrl(b.website) ?? b.website ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: "#2563eb" }}

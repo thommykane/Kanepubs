@@ -121,7 +121,7 @@ export default async function OrganizationDetailPage({ params }: Props) {
             <span style={labelStyle}>Website</span>
             {org.website ? (
               <a
-                href={normalizeWebsiteUrl(org.website) ?? org.website}
+                href={normalizeWebsiteUrl(org.website) ?? org.website ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "#2563eb" }}

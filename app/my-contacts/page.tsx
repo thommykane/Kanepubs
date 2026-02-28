@@ -254,7 +254,7 @@ export default function MyContactsPage() {
                   <td style={tdStyle}>
                     {(c.businessWebsite ?? c.organizationWebsite) ? (
                       <a
-                        href={normalizeWebsiteUrl(c.businessWebsite ?? c.organizationWebsite) ?? (c.businessWebsite ?? c.organizationWebsite)}
+                        href={normalizeWebsiteUrl(c.businessWebsite ?? c.organizationWebsite) ?? (c.businessWebsite ?? c.organizationWebsite) ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: "#2563eb" }}
