@@ -115,7 +115,9 @@ export default function AllBusinessesPage() {
     if (selectedIds.size === 0 || !assignToUsername) return;
     setAssigning(true);
     try {
-      for (const id of selectedIds) {
+      const ids = [...selectedIds];
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
         await fetch(`/api/businesses/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
