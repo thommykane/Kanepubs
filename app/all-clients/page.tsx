@@ -29,6 +29,7 @@ export default function AllClientsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [assignToUsername, setAssignToUsername] = useState("");
   const [assigning, setAssigning] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchClients = useCallback(async () => {
     const res = await fetch("/api/all-clients");
@@ -90,6 +91,22 @@ export default function AllClientsPage() {
       }
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} selected client(s)? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const ids = [...selectedIds];
+      for (const id of ids) {
+        await fetch(`/api/proposals/${id}`, { method: "DELETE" });
+      }
+      await fetchClients();
+      setSelectedIds(new Set());
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -200,6 +217,23 @@ export default function AllClientsPage() {
               }}
             >
               {assigning ? "Assigning…" : `Assign ${selectedIds.size}`}
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={selectedIds.size === 0 || deleting}
+              style={{
+                padding: "0.5rem 0.75rem",
+                background: "#b91c1c",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontWeight: 600,
+                cursor: selectedIds.size === 0 || deleting ? "not-allowed" : "pointer",
+                fontSize: "0.875rem",
+              }}
+            >
+              {deleting ? "Deleting…" : `Delete ${selectedIds.size}`}
             </button>
           </>
         )}

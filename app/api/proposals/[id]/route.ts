@@ -13,6 +13,15 @@ async function getCurrentUsername(req: NextRequest): Promise<string> {
   return user?.username ?? "Admin";
 }
 
+async function requireAdmin(req: NextRequest): Promise<boolean> {
+  const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
+  if (!sessionId) return false;
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  if (!session || new Date(session.expiresAt) < new Date()) return false;
+  const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, session.userId)).limit(1);
+  return user?.isAdmin ?? false;
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -132,5 +141,23 @@ export async function PATCH(
   } catch (err) {
     console.error("[api/proposals PATCH]", err);
     return NextResponse.json({ error: "Failed to update proposal" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const isAdmin = await requireAdmin(req);
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const { id } = await params;
+    await db.delete(proposals).where(eq(proposals.id, id));
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[api/proposals DELETE]", err);
+    return NextResponse.json({ error: "Failed to delete proposal" }, { status: 500 });
   }
 }
