@@ -62,10 +62,21 @@ export default function Sidebar() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { credentials: "include" })
       .then((r) => r.json())
       .then((data) => setIsAdmin(data?.user?.isAdmin ?? false))
       .catch(() => setIsAdmin(false));
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      fetch("/api/me", { credentials: "include" })
+        .then((r) => r.json())
+        .then((data) => setIsAdmin(data?.user?.isAdmin ?? false))
+        .catch(() => setIsAdmin(false));
+    };
+    window.addEventListener("user-updated", handler);
+    return () => window.removeEventListener("user-updated", handler);
   }, []);
 
   const liveLinks = isAdmin === true ? LIVE_ACTIVITY_LINKS_ADMIN : LIVE_ACTIVITY_LINKS_AGENT;
@@ -114,16 +125,12 @@ export default function Sidebar() {
           </Link>
         ))}
 
-        {isAdmin === true && (
-          <>
-            <div style={sectionBarStyle}>New Media</div>
-            {LEADS_LINKS.map(({ href, label }) => (
-              <Link key={href} href={href} style={linkStyle}>
-                {label}
-              </Link>
-            ))}
-          </>
-        )}
+        <div style={sectionBarStyle}>New Media</div>
+        {LEADS_LINKS.map(({ href, label }) => (
+          <Link key={href} href={href} style={linkStyle}>
+            {label}
+          </Link>
+        ))}
 
         <div style={sectionBarStyle}>Live Activity</div>
         {liveLinks.map(({ href, label }) => (
