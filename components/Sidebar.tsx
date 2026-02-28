@@ -35,7 +35,10 @@ const MY_ACCOUNT_LINKS = [
   { href: "/my-clients", label: "My Clients" },
 ];
 
-const ADMIN_LINKS = [{ href: "/all-clients", label: "All Clients" }];
+const ADMIN_LINKS = [
+  { href: "/all-clients", label: "All Clients" },
+  { href: "/csv-uploads", label: "CSV UPLOADS" },
+];
 
 const linkStyle = {
   display: "block" as const,
