@@ -52,21 +52,14 @@ export default function SoldPage() {
   const groupedByMonthYear = useMemo(() => {
     const map = new Map<string, Row[]>();
     for (const row of list) {
-      const matDue = row.proposal.matDue;
+      const soldAt = row.proposal.statusUpdatedAt ?? row.proposal.createdAt;
       let key = "Unknown";
-      if (matDue) {
+      if (soldAt) {
         try {
-          const d = new Date(matDue);
+          const d = new Date(soldAt);
           key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         } catch {
-          key = matDue;
-        }
-      } else {
-        try {
-          const d = new Date(row.proposal.createdAt);
-          key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        } catch {
-          key = row.proposal.createdAt?.slice(0, 7) ?? "Unknown";
+          key = String(soldAt).slice(0, 7) ?? "Unknown";
         }
       }
       if (!map.has(key)) map.set(key, []);
