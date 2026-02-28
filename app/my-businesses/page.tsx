@@ -314,7 +314,7 @@ export default function MyBusinessesPage() {
                     height: "44px",
                   }}
                 >
-                  <td style={tdStyle}>
+                  <td style={tdStyleCreated}>
                     {b.lastActivityAt ? (
                       <>
                         <div>{formatDateTime(b.lastActivityAt)}</div>
@@ -333,8 +333,8 @@ export default function MyBusinessesPage() {
                       b.businessName ?? "—"
                     )}
                   </td>
-                  <td style={tdStyle}>{b.timeZone ?? "—"}</td>
-                  <td style={tdStyle}>{b.phone ?? "—"}</td>
+                  <td style={tdStyleTimezone}>{b.timeZone ?? "—"}</td>
+                  <td style={tdStylePhone}>{b.phone ?? "—"}</td>
                   <td style={tdStyle}>
                     {b.website ? (
                       <a
@@ -349,9 +349,17 @@ export default function MyBusinessesPage() {
                       "—"
                     )}
                   </td>
-                  <td style={tdStyle}>{b.businessType ?? "—"}</td>
-                  <td style={tdStyle}>{b.tags ?? "—"}</td>
-                  <td style={tdStyle}>{b.displayId ?? "—"}</td>
+                  <td style={tdStyleType}>{b.businessType ?? "—"}</td>
+                  <td style={tdStyleTags}>{b.tags ?? "—"}</td>
+                  <td style={tdStyle}>
+                    {b.displayId ? (
+                      <Link href={`/all-businesses/${b.displayId}`} style={{ color: "var(--gold-bright)" }}>
+                        {b.displayId}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td style={tdStyle}>
                     <button type="button" onClick={() => openEdit(b)} style={btnSmall}>Edit</button>
                   </td>
@@ -365,6 +373,7 @@ export default function MyBusinessesPage() {
   );
 }
 
+// Same font/color styles as All Businesses
 const thStyle: React.CSSProperties = {
   padding: "10px 12px",
   fontSize: "0.75rem",
@@ -383,7 +392,12 @@ const tdBase = {
   whiteSpace: "nowrap",
 } as const;
 
+const tdStyleCreated: React.CSSProperties = { ...tdBase, color: "#89CFF0" };
 const tdStyleName: React.CSSProperties = { ...tdBase, color: "var(--gold-bright)" };
+const tdStyleTimezone: React.CSSProperties = { ...tdBase, color: "#fff" };
+const tdStylePhone: React.CSSProperties = { ...tdBase, color: "#fff" };
+const tdStyleType: React.CSSProperties = { ...tdBase, color: "#fff", fontWeight: 700 };
+const tdStyleTags: React.CSSProperties = { ...tdBase, color: "#90EE90" };
 const tdStyle: React.CSSProperties = { ...tdBase, color: "var(--gold-bright)" };
 
 const btnSmall: React.CSSProperties = {
