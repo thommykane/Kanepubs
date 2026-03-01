@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         )
       )
       .where(eq(proposals.status, status))
-      .orderBy(desc(proposals.createdAt));
+      .orderBy(desc(status === "sold" ? proposals.statusUpdatedAt : proposals.createdAt));
 
     return NextResponse.json(rows);
   } catch (err) {
