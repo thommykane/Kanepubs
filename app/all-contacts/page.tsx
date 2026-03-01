@@ -136,6 +136,7 @@ export default function AllContactsPage() {
     textTransform: "uppercase",
     letterSpacing: "0.05em",
   };
+  const thStyleName: React.CSSProperties = { ...thStyle, width: "1%", whiteSpace: "nowrap" };
 
   const tdBase: React.CSSProperties = {
     padding: "10px 12px",
@@ -147,7 +148,7 @@ export default function AllContactsPage() {
   };
   const tdStyleCreated: React.CSSProperties = { ...tdBase, color: "#89CFF0" };
   const tdStyleAssigned: React.CSSProperties = { ...tdBase, color: "#fff" };
-  const tdStyleName: React.CSSProperties = { ...tdBase, color: "#a335ee", fontWeight: 700 };
+  const tdStyleName: React.CSSProperties = { ...tdBase, color: "#a335ee", fontWeight: 700, width: "1%", whiteSpace: "nowrap", maxWidth: "120px" };
   const tdStyleTitle: React.CSSProperties = { ...tdBase, color: "#fff" };
   const tdStylePhone: React.CSSProperties = { ...tdBase, color: "#89CFF0" };
   const tdStyleEmail: React.CSSProperties = { ...tdBase, color: "#39ff14" };
@@ -208,8 +209,8 @@ export default function AllContactsPage() {
                 <th style={thStyle}>Created</th>
                 <th style={thStyle}>Assigned to</th>
                 <th style={thStyle}>Business</th>
-                <th style={thStyle}>First</th>
-                <th style={thStyle}>Last</th>
+                <th style={thStyleName}>First</th>
+                <th style={thStyleName}>Last</th>
                 <th style={thStyle}>Title</th>
                 <th style={thStyle}>Office number</th>
                 <th style={thStyle}>Cell number</th>
