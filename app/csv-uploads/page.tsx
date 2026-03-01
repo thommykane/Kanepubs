@@ -22,7 +22,7 @@ const EXPECTED_HEADERS =
   "Organization Name*,Organization Address or PO Box*,Suite #,City*,State*,Zip Code*,County*,Phone*,Website*,Organization Type*,Tags";
 
 const CONTACTS_HEADERS =
-  "First Name*,Last Name*,Title*,Office Number*,Cell Number*,Email*,Business or Organization ID*";
+  "First Name*,Last Name*,Title,Office Number*,Cell Number*,Email*,Business or Organization ID*";
 
 export default function CSVUploadsPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -260,7 +260,7 @@ export default function CSVUploadsPage() {
           <strong style={{ color: "var(--gold-bright)" }}>Required columns (*):</strong>
         </p>
         <ul style={{ color: "var(--gold-dim)", fontSize: "0.8rem", marginBottom: "0.5rem", paddingLeft: "1.25rem" }}>
-          <li>First Name*, Last Name*, Title*, Office Number*, Cell Number*</li>
+          <li>First Name*, Last Name*, Title (optional), Office Number*, Cell Number*</li>
           <li>Email*, Business or Organization ID*</li>
         </ul>
         <p style={{ color: "var(--gold-dim)", fontSize: "0.75rem", marginBottom: "1rem" }}>
