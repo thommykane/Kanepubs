@@ -208,8 +208,73 @@ export default function AllOrganizationsPage() {
     fontSize: "0.875rem",
   };
 
+  const downloadCSV = () => {
+    const headers = [
+      "Organization Name",
+      "Address",
+      "Address Line 2",
+      "City",
+      "State",
+      "Zip Code",
+      "County",
+      "Phone",
+      "Website",
+      "Organization Type",
+      "Tags",
+      "Assigned To",
+      "Display ID",
+    ];
+    const escape = (v: string | null | undefined) => {
+      const s = v == null ? "" : String(v).trim();
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const rows = list.map((o) =>
+      [
+        o.organizationName,
+        o.address,
+        o.addressLine2,
+        o.city,
+        o.state,
+        o.zipCode,
+        o.county,
+        o.phone,
+        o.website,
+        o.organizationType,
+        o.tags,
+        o.assignedTo,
+        o.displayId,
+      ].map(escape).join(",")
+    );
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `all-organizations-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{ width: "100%" }}>
+      <div style={{ marginBottom: "0.75rem" }}>
+        <button
+          type="button"
+          onClick={downloadCSV}
+          style={{
+            padding: "0.5rem 0.75rem",
+            background: "var(--glass)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: "6px",
+            color: "var(--gold-bright)",
+            cursor: "pointer",
+            fontSize: "0.875rem",
+          }}
+        >
+          Download CSV
+        </button>
+      </div>
       <div
         style={{
           display: "flex",
