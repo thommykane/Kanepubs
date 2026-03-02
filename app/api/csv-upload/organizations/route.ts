@@ -145,6 +145,19 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      const websiteNorm = normalizeWebsiteUrl(row.website || null);
+      if (websiteNorm) {
+        const [existing] = await db
+          .select({ id: organizations.id })
+          .from(organizations)
+          .where(eq(organizations.website, websiteNorm))
+          .limit(1);
+        if (existing) {
+          errors.push({ row: rowNum, message: "An organization with this website already exists." });
+          continue;
+        }
+      }
+
       const id = uuid();
       const displayId = "A" + (await getNextDisplayId());
       const stateVal = String(row.state ?? "").trim() || null;

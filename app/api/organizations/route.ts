@@ -83,6 +83,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const websiteNorm = normalizeWebsiteUrl(website);
+    if (websiteNorm) {
+      const [existing] = await db
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.website, websiteNorm))
+        .limit(1);
+      if (existing) {
+        return NextResponse.json(
+          { error: "An organization with this website already exists." },
+          { status: 400 }
+        );
+      }
+    }
+
     const username = await getCurrentUsername(req);
     const id = uuid();
     const displayId = "A" + (await getNextDisplayId());

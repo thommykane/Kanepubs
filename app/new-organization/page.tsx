@@ -107,7 +107,13 @@ export default function NewOrganizationPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMessage(data.error || "Failed to create organization");
+        const isDuplicate = res.status === 400 && data.error?.toLowerCase().includes("already exists");
+        if (isDuplicate) {
+          window.alert("This organization is already in the database.");
+          setErrorMessage("");
+        } else {
+          setErrorMessage(data.error || "Failed to create organization");
+        }
         setStatus("error");
         return;
       }
