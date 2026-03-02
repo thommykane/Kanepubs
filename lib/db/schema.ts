@@ -106,6 +106,7 @@ export const proposals = pgTable("proposals", {
   issues: jsonb("issues").$type<{ issue: string; year: string; specialFeatures: string }[]>(),
   geo: text("geo"), // 'Yes' | 'No'
   impressions: integer("impressions"),
+  notes: text("notes"), // max 50 chars, from agent at sent_proposal
   status: text("status").notNull(), // 'proposal' | 'io' | 'passed' | 'rejected' | 'sold'
   matDue: timestamp("mat_due"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

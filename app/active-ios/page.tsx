@@ -13,6 +13,7 @@ type Proposal = {
   issues: { issue: string; year: string; specialFeatures: string }[] | null;
   geo: string | null;
   impressions: number | null;
+  notes: string | null;
   status: string;
   createdAt: string;
   statusUpdatedAt?: string | null;
@@ -200,6 +201,12 @@ export default function ActiveIOsPage() {
                   <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>Impressions</span>
                   <div style={{ color: "var(--gold-bright)" }}>{row.proposal.impressions ?? "—"}</div>
                 </div>
+                {row.proposal.notes && (
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>Notes</span>
+                    <div style={{ color: "var(--gold-bright)", fontSize: "0.85rem" }}>{row.proposal.notes}</div>
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
                 <button

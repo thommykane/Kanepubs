@@ -29,7 +29,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { status, matDue } = body;
+    const { status, matDue, adminEdit, salesAgent, assignedTo, amount, issues, geo, impressions, notes } = body;
 
     const [proposal] = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
     if (!proposal) {
@@ -37,6 +37,37 @@ export async function PATCH(
     }
 
     const username = await getCurrentUsername(req);
+
+    // Admin-only edit of proposal fields (for SOLD and other statuses)
+    if (adminEdit === true) {
+      const isAdmin = await requireAdmin(req);
+      if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      const updates: Record<string, unknown> = {};
+      if (salesAgent != null && String(salesAgent).trim() !== "")
+        updates.salesAgent = String(salesAgent).trim();
+      if (assignedTo !== undefined)
+        updates.assignedTo = assignedTo != null && String(assignedTo).trim() !== "" ? String(assignedTo).trim() : null;
+      if (amount !== undefined) updates.amount = amount != null && String(amount).trim() !== "" ? String(amount).trim() : null;
+      if (issues !== undefined)
+        updates.issues = Array.isArray(issues) ? (issues as { issue: string; year: string; specialFeatures: string }[]) : null;
+      if (geo !== undefined) updates.geo = geo != null ? String(geo).trim() : null;
+      if (impressions !== undefined) {
+        const v = impressions != null && String(impressions).trim() !== ""
+          ? parseInt(String(impressions).replace(/\D/g, "").slice(0, 7), 10)
+          : null;
+        updates.impressions = Number.isInteger(v) ? v : null;
+      }
+      if (matDue !== undefined) {
+        const matDueVal = matDue != null && String(matDue).trim() !== "" ? new Date(matDue) : null;
+        updates.matDue = matDueVal && !isNaN(matDueVal.getTime()) ? matDueVal : null;
+      }
+      if (notes !== undefined)
+        updates.notes = notes != null && String(notes).trim() !== "" ? String(notes).trim().slice(0, 50) : null;
+      if (Object.keys(updates).length > 0) {
+        await db.update(proposals).set(updates as Record<string, never>).where(eq(proposals.id, id));
+      }
+      return NextResponse.json({ success: true });
+    }
 
     if (status === "passed") {
       await db.update(proposals).set({ status: "passed", statusUpdatedAt: new Date() }).where(eq(proposals.id, id));
@@ -169,6 +200,35 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const { id } = await params;
+    const [proposal] = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
+    if (!proposal) {
+      return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
+    }
+    // Revert Money Spent and Transactions if SOLD
+    if (proposal.status === "sold") {
+      const amount = proposal.amount != null ? Number(proposal.amount) : 0;
+      if (proposal.companyType === "business") {
+        const [b] = await db.select().from(businesses).where(eq(businesses.displayId, proposal.companyDisplayId)).limit(1);
+        if (b) {
+          const currentMoney = b.moneySpent != null ? Number(b.moneySpent) : 0;
+          const currentTx = b.transactions ?? 0;
+          await db.update(businesses).set({
+            moneySpent: Math.max(0, currentMoney - amount).toFixed(2),
+            transactions: Math.max(0, currentTx - 1),
+          }).where(eq(businesses.id, b.id));
+        }
+      } else {
+        const [o] = await db.select().from(organizations).where(eq(organizations.displayId, proposal.companyDisplayId)).limit(1);
+        if (o) {
+          const currentMoney = o.moneySpent != null ? Number(o.moneySpent) : 0;
+          const currentTx = o.transactions ?? 0;
+          await db.update(organizations).set({
+            moneySpent: Math.max(0, currentMoney - amount).toFixed(2),
+            transactions: Math.max(0, currentTx - 1),
+          }).where(eq(organizations.id, o.id));
+        }
+      }
+    }
     await db.delete(proposals).where(eq(proposals.id, id));
     return NextResponse.json({ success: true });
   } catch (err) {

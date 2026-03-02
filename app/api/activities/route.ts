@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
           pd.impressions != null && Number.isInteger(Number(pd.impressions))
             ? Number(pd.impressions)
             : null,
+        notes: notesTrimmed,
         status: "proposal",
       });
     }
