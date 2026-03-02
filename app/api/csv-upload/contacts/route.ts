@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
     const required = ["firstName", "lastName", "email", "businessId"];
     const created: { id: string; firstName: string; lastName: string; businessId: string }[] = [];
     const errors: { row: number; message: string }[] = [];
+    const skipped: { row: number; reason: string }[] = [];
 
     for (let i = 0; i < rawRows.length; i++) {
       const row = mapRow(rawRows[i]);
@@ -103,11 +104,23 @@ export async function POST(req: NextRequest) {
 
       for (const field of required) {
         if (!row[field] || !String(row[field]).trim()) {
-          errors.push({ row: rowNum, message: `Missing required: ${field}` });
+          skipped.push({ row: rowNum, reason: field === "businessId" ? "No Business or Organization ID" : `Missing required: ${field}` });
           break;
         }
       }
+      if (skipped.some((s) => s.row === rowNum)) continue;
       if (errors.some((e) => e.row === rowNum)) continue;
+
+      const emailVal = String(row.email).trim();
+      const [existingByEmail] = await db
+        .select({ id: contacts.id })
+        .from(contacts)
+        .where(eq(contacts.email, emailVal))
+        .limit(1);
+      if (existingByEmail) {
+        skipped.push({ row: rowNum, reason: "Email already in system" });
+        continue;
+      }
 
       const businessId = String(row.businessId).trim();
       const [orgRow] = await db
@@ -151,6 +164,7 @@ export async function POST(req: NextRequest) {
       created: created.length,
       createdContacts: created,
       errors: errors.length ? errors : undefined,
+      skipped: skipped.length ? skipped : undefined,
     });
   } catch (err) {
     console.error("[api/csv-upload/contacts POST]", err);

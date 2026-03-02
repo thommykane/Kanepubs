@@ -66,6 +66,21 @@ export async function POST(req: NextRequest) {
       businessId,
     } = body;
 
+    const emailVal = email != null ? String(email).trim() : "";
+    if (emailVal) {
+      const [existing] = await db
+        .select({ id: contacts.id })
+        .from(contacts)
+        .where(eq(contacts.email, emailVal))
+        .limit(1);
+      if (existing) {
+        return NextResponse.json(
+          { error: "This contact already exists" },
+          { status: 400 }
+        );
+      }
+    }
+
     const id = uuid();
     const username = await getCurrentUsername(req);
     await db.insert(contacts).values({

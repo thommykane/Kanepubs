@@ -35,7 +35,13 @@ export default function NewContactPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMessage(data.error || "Failed to create contact");
+        const isDuplicate = res.status === 400 && data.error?.toLowerCase().includes("already exists");
+        if (isDuplicate) {
+          window.alert("This contact already exists.");
+          setErrorMessage("");
+        } else {
+          setErrorMessage(data.error || "Failed to create contact");
+        }
         setStatus("error");
         return;
       }

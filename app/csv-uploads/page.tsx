@@ -44,6 +44,7 @@ export default function CSVUploadsPage() {
     created: number;
     createdContacts?: { id: string; firstName: string; lastName: string; businessId: string }[];
     errors?: { row: number; message: string }[];
+    skipped?: { row: number; reason: string }[];
   } | null>(null);
   const [contactsError, setContactsError] = useState<string | null>(null);
   const contactsInputRef = useRef<HTMLInputElement>(null);
@@ -118,6 +119,7 @@ export default function CSVUploadsPage() {
         created: data.created ?? 0,
         createdContacts: data.createdContacts ?? [],
         errors: data.errors,
+        skipped: data.skipped,
       });
       setContactsFile(null);
       if (contactsInputRef.current) contactsInputRef.current.value = "";
@@ -392,6 +394,13 @@ export default function CSVUploadsPage() {
             {contactsResult.errors && contactsResult.errors.length > 0 && (
               <p style={{ color: "#fbbf24", marginTop: "0.75rem" }}>
                 Row errors: {contactsResult.errors.map((e) => `Row ${e.row}: ${e.message}`).join("; ")}
+              </p>
+            )}
+            {contactsResult.skipped && contactsResult.skipped.length > 0 && (
+              <p style={{ color: "var(--gold-dim)", marginTop: "0.75rem" }}>
+                Skipped {contactsResult.skipped.length} row(s) (duplicate email or missing Business/Organization ID):{" "}
+                {contactsResult.skipped.slice(0, 5).map((s) => `Row ${s.row} (${s.reason})`).join("; ")}
+                {contactsResult.skipped.length > 5 && ` … and ${contactsResult.skipped.length - 5} more`}
               </p>
             )}
           </div>
