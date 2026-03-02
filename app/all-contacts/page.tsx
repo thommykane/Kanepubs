@@ -32,6 +32,8 @@ export default function AllContactsPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [purgeConfirm, setPurgeConfirm] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const fetchContacts = useCallback(async () => {
     const res = await fetch("/api/contacts");
@@ -94,6 +96,22 @@ export default function AllContactsPage() {
       setDeleteConfirmId(null);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handlePurgeContacts = async () => {
+    setPurging(true);
+    try {
+      const res = await fetch("/api/contacts/purge-all", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPurgeConfirm(false);
+        await fetchContacts();
+      } else {
+        alert(data.error || "Failed to purge contacts");
+      }
+    } finally {
+      setPurging(false);
     }
   };
 
@@ -167,7 +185,26 @@ export default function AllContactsPage() {
         }}
       >
         <h1 style={{ color: "var(--gold-bright)" }}>All Contacts</h1>
-        <Link
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          {!loading && list.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPurgeConfirm(true)}
+              style={{
+                padding: "0.5rem 0.75rem",
+                background: "transparent",
+                color: "#e57373",
+                border: "1px solid #e57373",
+                borderRadius: "6px",
+                fontWeight: 600,
+                cursor: "pointer",
+                fontSize: "0.875rem",
+              }}
+            >
+              Purge all contacts
+            </button>
+          )}
+          <Link
           href="/new-contact"
           style={{
             padding: "0.5rem 0.75rem",
@@ -181,7 +218,57 @@ export default function AllContactsPage() {
         >
           New Contact
         </Link>
+        </div>
       </div>
+
+      {purgeConfirm && (
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "1rem",
+            background: "var(--glass)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: "8px",
+          }}
+        >
+          <p style={{ color: "var(--gold-bright)", margin: "0 0 0.75rem 0" }}>
+            Permanently remove all contacts? This cannot be undone.
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={handlePurgeContacts}
+              disabled={purging}
+              style={{
+                padding: "0.5rem 0.75rem",
+                background: "#b71c1c",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontWeight: 600,
+                cursor: purging ? "not-allowed" : "pointer",
+              }}
+            >
+              {purging ? "Purging…" : "Yes, purge all contacts"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPurgeConfirm(false)}
+              disabled={purging}
+              style={{
+                padding: "0.5rem 0.75rem",
+                background: "transparent",
+                border: "1px solid var(--glass-border)",
+                borderRadius: "6px",
+                color: "var(--gold-bright)",
+                cursor: purging ? "not-allowed" : "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div
         style={{

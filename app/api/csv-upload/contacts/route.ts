@@ -60,6 +60,7 @@ const COLUMN_MAP: Record<string, string> = {
   "office number": "officeNumber",
   "cell number": "cellNumber",
   "email": "email",
+  "email address": "email",
   "business or organization id": "businessId",
   "business id": "businessId",
   "organization id": "businessId",
