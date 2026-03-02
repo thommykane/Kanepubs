@@ -42,6 +42,8 @@ export default function AllActivityPage() {
   const [loading, setLoading] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [purgeConfirm, setPurgeConfirm] = useState(false);
+  const [purging, setPurging] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchFirstPage = useCallback(async () => {
@@ -116,9 +118,93 @@ export default function AllActivityPage() {
       ? `/all-organizations/${a.companyDisplayId}`
       : `/all-businesses/${a.companyDisplayId}`;
 
+  const handlePurgeActivity = async () => {
+    setPurging(true);
+    try {
+      const res = await fetch("/api/activities/purge-all", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPurgeConfirm(false);
+        setList([]);
+        setHasMore(false);
+        await fetchFirstPage();
+      }
+    } finally {
+      setPurging(false);
+    }
+  };
+
   return (
     <div style={{ width: "100%", padding: "1rem 0" }}>
-      <h1 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>All Activity</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
+        <h1 style={{ color: "var(--gold-bright)", margin: 0 }}>All Activity</h1>
+        {!loading && list.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setPurgeConfirm(true)}
+            style={{
+              padding: "0.5rem 0.75rem",
+              background: "transparent",
+              color: "#e57373",
+              border: "1px solid #e57373",
+              borderRadius: "6px",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: "0.875rem",
+            }}
+          >
+            Purge all activity
+          </button>
+        )}
+      </div>
+      {purgeConfirm && (
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "1rem",
+            background: "var(--glass)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: "8px",
+          }}
+        >
+          <p style={{ color: "var(--gold-bright)", marginBottom: "0.75rem" }}>
+            Remove all activity records? This will clear Recent Activity on every organization and business profile. This cannot be undone.
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={() => setPurgeConfirm(false)}
+              disabled={purging}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "var(--glass)",
+                color: "var(--gold-bright)",
+                border: "1px solid var(--glass-border)",
+                borderRadius: "6px",
+                cursor: purging ? "not-allowed" : "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handlePurgeActivity}
+              disabled={purging}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "#b71c1c",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontWeight: 600,
+                cursor: purging ? "not-allowed" : "pointer",
+              }}
+            >
+              {purging ? "Purging…" : "Purge all activity"}
+            </button>
+          </div>
+        </div>
+      )}
       <div
         style={{
           width: "100%",
