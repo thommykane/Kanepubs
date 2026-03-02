@@ -509,7 +509,7 @@ export default function SoldPage() {
                         minWidth: "100px",
                       }}
                     >
-                      <option value="">Issue</option>
+                      <option value="">Select</option>
                       {ISSUE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
                     <select

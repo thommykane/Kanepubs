@@ -386,7 +386,7 @@ export default function CompanyContactsTable({
                                       onChange={(e) => updateIssue(idx, "issue", e.target.value)}
                                       style={{ ...inputStyle, maxWidth: "140px" }}
                                     >
-                                      <option value="">Issue</option>
+                                      <option value="">Select</option>
                                       {ISSUE_OPTIONS.map((o) => (
                                         <option key={o} value={o}>{o}</option>
                                       ))}
