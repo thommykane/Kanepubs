@@ -51,14 +51,7 @@ export default function SalesAgentsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const timeoutId = setTimeout(() => {
-      if (!cancelled) {
-        setLoading(false);
-        setLoadError("Request timed out. Please try again.");
-      }
-    }, 15000);
     async function run() {
-      setLoadError(null);
       try {
         const res = await fetch("/api/admin/users", { credentials: "include" });
         if (cancelled) return;
@@ -78,10 +71,7 @@ export default function SalesAgentsPage() {
       }
     }
     run();
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
