@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { activities, sessions, users, proposals, contacts, businesses, organizations } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
@@ -215,5 +215,25 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[api/activities POST]", err);
     return NextResponse.json({ error: "Failed to create activity" }, { status: 500 });
+  }
+}
+
+/** DELETE: Remove activities by id. Body: { ids: string[] }. */
+export async function DELETE(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const ids = body?.ids;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "ids array required" }, { status: 400 });
+    }
+    const idList = ids.filter((x: unknown) => typeof x === "string" && x.trim() !== "").slice(0, 100);
+    if (idList.length === 0) {
+      return NextResponse.json({ error: "No valid ids" }, { status: 400 });
+    }
+    await db.delete(activities).where(inArray(activities.id, idList));
+    return NextResponse.json({ success: true, deleted: idList.length });
+  } catch (err) {
+    console.error("[api/activities DELETE]", err);
+    return NextResponse.json({ error: "Failed to delete activities" }, { status: 500 });
   }
 }
