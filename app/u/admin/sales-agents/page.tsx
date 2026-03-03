@@ -151,7 +151,11 @@ export default function SalesAgentsPage() {
           <tbody>
             {list.map((user) => (
               <tr key={user.id}>
-                <td style={tdStyle}>{user.username}</td>
+                <td style={tdStyle}>
+                  <Link href={`/u/${encodeURIComponent(user.username)}`} style={{ color: "var(--gold-bright)", fontWeight: 600 }}>
+                    {user.username}
+                  </Link>
+                </td>
                 <td style={tdStyle}>{user.email ?? "—"}</td>
                 <td style={tdStyle}>{rankLabel(user)}</td>
                 <td style={tdStyle}>
