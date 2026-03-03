@@ -51,7 +51,7 @@ export default function SoldPage() {
   const [editModal, setEditModal] = useState<Row | null>(null);
   const [editSalesAgent, setEditSalesAgent] = useState("");
   const [editAmount, setEditAmount] = useState("");
-  const [editIssues, setEditIssues] = useState<{ issue: string; year: string; specialFeatures: string }[]>([{ issue: "", year: "2026", specialFeatures: "None" }]);
+  const [editIssues, setEditIssues] = useState<{ issue: string; year: string; specialFeatures: string }[]>([{ issue: "Spring", year: "2026", specialFeatures: "None" }]);
   const [editGeo, setEditGeo] = useState("");
   const [editImpressions, setEditImpressions] = useState("");
   const [editMatDueMonth, setEditMatDueMonth] = useState("");
@@ -80,7 +80,7 @@ export default function SoldPage() {
     setEditModal(row);
     setEditSalesAgent(row.proposal.salesAgent);
     setEditAmount(row.proposal.amount ?? "");
-    setEditIssues(row.proposal.issues && row.proposal.issues.length > 0 ? row.proposal.issues.map((i) => ({ ...i })) : [{ issue: "", year: "2026", specialFeatures: "None" }]);
+    setEditIssues(row.proposal.issues && row.proposal.issues.length > 0 ? row.proposal.issues.map((i) => ({ ...i })) : [{ issue: "Spring", year: "2026", specialFeatures: "None" }]);
     setEditGeo(row.proposal.geo ?? "");
     setEditImpressions(row.proposal.impressions != null ? String(row.proposal.impressions) : "");
     setEditNotes(row.proposal.notes ?? "");
@@ -110,7 +110,7 @@ export default function SoldPage() {
     });
   };
 
-  const addEditIssueRow = () => setEditIssues((p) => [...p, { issue: "", year: "2026", specialFeatures: "None" }]);
+  const addEditIssueRow = () => setEditIssues((p) => [...p, { issue: "Spring", year: "2026", specialFeatures: "None" }]);
 
   const handleSaveEdit = async () => {
     if (!editModal) return;
@@ -509,7 +509,6 @@ export default function SoldPage() {
                         minWidth: "100px",
                       }}
                     >
-                      <option value="">Select</option>
                       {ISSUE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
                     <select
