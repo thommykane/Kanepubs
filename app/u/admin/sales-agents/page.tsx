@@ -42,13 +42,9 @@ export default function SalesAgentsPage() {
   const [selectedRank, setSelectedRank] = useState<Record<string, string>>({});
   const [editedUsername, setEditedUsername] = useState<Record<string, string>>({});
 
-  const fetchUsers = useCallback(async () => {
+  const refetchUsers = useCallback(async () => {
     const res = await fetch("/api/admin/users", { credentials: "include" });
-    if (res.status === 403) {
-      setForbidden(true);
-      setList([]);
-      return;
-    }
+    if (res.status !== 200) return;
     const data = await res.json();
     setList(Array.isArray(data) ? data : []);
   }, []);
@@ -56,23 +52,27 @@ export default function SalesAgentsPage() {
   useEffect(() => {
     let cancelled = false;
     const timeoutId = setTimeout(() => {
-      if (!cancelled && loading) {
+      if (!cancelled) {
         setLoading(false);
-        setLoadError("Request timed out. Log in as an admin and refresh.");
+        setLoadError("Request timed out. Please try again.");
       }
-    }, 12000);
+    }, 15000);
     async function run() {
       setLoadError(null);
       try {
-        const meRes = await fetch("/api/me", { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meJson?.user?.isAdmin) {
-          if (!cancelled) setForbidden(true);
+        const res = await fetch("/api/admin/users", { credentials: "include" });
+        if (cancelled) return;
+        if (res.status === 403) {
+          setForbidden(true);
+          setList([]);
+          setLoading(false);
           return;
         }
-        await fetchUsers();
+        const data = await res.json();
+        if (cancelled) return;
+        setList(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError("Could not load. Log in as admin and try again.");
+        if (!cancelled) setLoadError("Could not load. Please try again.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -82,7 +82,7 @@ export default function SalesAgentsPage() {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [fetchUsers]);
+  }, []);
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -118,7 +118,7 @@ export default function SalesAgentsPage() {
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        await fetchUsers();
+        await refetchUsers();
       } else {
         const data = await res.json();
         alert(data?.error ?? "Failed to update");
