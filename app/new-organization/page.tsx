@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const ORGANIZATION_TYPES = [
@@ -71,7 +71,7 @@ const US_STATES = [
   { value: "WY", label: "Wyoming" },
 ];
 
-export default function NewOrganizationPage() {
+function NewOrganizationForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
@@ -366,3 +366,11 @@ const inputStyle: React.CSSProperties = {
   color: "var(--gold-bright)",
   fontSize: "1rem",
 };
+
+export default function NewOrganizationPage() {
+  return (
+    <Suspense fallback={<main style={{ padding: "1.5rem" }}><p style={{ color: "var(--gold-dim)" }}>Loading…</p></main>}>
+      <NewOrganizationForm />
+    </Suspense>
+  );
+}

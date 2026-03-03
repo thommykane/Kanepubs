@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const BUSINESS_TYPES = [
@@ -85,7 +85,7 @@ const US_STATES = [
   { value: "WY", label: "Wyoming" },
 ];
 
-export default function NewBusinessPage() {
+function NewBusinessForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
@@ -374,3 +374,11 @@ const inputStyle: React.CSSProperties = {
   color: "var(--gold-bright)",
   fontSize: "1rem",
 };
+
+export default function NewBusinessPage() {
+  return (
+    <Suspense fallback={<main style={{ padding: "1.5rem" }}><p style={{ color: "var(--gold-dim)" }}>Loading…</p></main>}>
+      <NewBusinessForm />
+    </Suspense>
+  );
+}
