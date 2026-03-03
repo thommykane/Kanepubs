@@ -15,7 +15,7 @@ type Contact = {
   email: string | null;
 };
 
-type AgencyClient = { companyDisplayId: string; companyType: string };
+type AgencyClient = { companyDisplayId: string; companyType: string; companyName?: string };
 
 type Props = {
   agencyDisplayId: string;

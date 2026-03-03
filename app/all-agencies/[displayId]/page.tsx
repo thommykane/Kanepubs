@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, contacts } from "@/lib/db/schema";
+import { agencies, agencyClients, contacts, organizations, businesses } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
 import AgencyProfileContent from "@/components/AgencyProfileContent";
 
@@ -23,10 +23,43 @@ export default async function AgencyDetailPage({ params }: Props) {
     );
   }
 
-  const clients = await db
+  const clientRows = await db
     .select({ companyDisplayId: agencyClients.companyDisplayId, companyType: agencyClients.companyType })
     .from(agencyClients)
     .where(eq(agencyClients.agencyId, agency.id));
+
+  const orgIds = clientRows.filter((c) => c.companyType === "org").map((c) => c.companyDisplayId);
+  const bizIds = clientRows.filter((c) => c.companyType === "business").map((c) => c.companyDisplayId);
+
+  const orgNames = new Map<string, string>();
+  if (orgIds.length > 0) {
+    const orgs = await db
+      .select({ displayId: organizations.displayId, organizationName: organizations.organizationName })
+      .from(organizations)
+      .where(inArray(organizations.displayId, orgIds));
+    for (const o of orgs) {
+      if (o.displayId) orgNames.set(o.displayId, o.organizationName ?? o.displayId);
+    }
+  }
+  const bizNames = new Map<string, string>();
+  if (bizIds.length > 0) {
+    const bizs = await db
+      .select({ displayId: businesses.displayId, businessName: businesses.businessName })
+      .from(businesses)
+      .where(inArray(businesses.displayId, bizIds));
+    for (const b of bizs) {
+      if (b.displayId) bizNames.set(b.displayId, b.businessName ?? b.displayId);
+    }
+  }
+
+  const clients = clientRows.map((c) => ({
+    companyDisplayId: c.companyDisplayId,
+    companyType: c.companyType,
+    companyName:
+      c.companyType === "org"
+        ? orgNames.get(c.companyDisplayId) ?? c.companyDisplayId
+        : bizNames.get(c.companyDisplayId) ?? c.companyDisplayId,
+  }));
 
   const contactList = await db
     .select()

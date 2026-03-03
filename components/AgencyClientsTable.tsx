@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-type Client = { companyDisplayId: string; companyType: string };
+type Client = { companyDisplayId: string; companyType: string; companyName: string };
 
 type Props = {
   clients: Client[];
@@ -44,7 +44,7 @@ export default function AgencyClientsTable({ clients }: Props) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--glass-border)", textAlign: "left" }}>
-                <th style={thStyle}>Client ID</th>
+                <th style={thStyle}>Client</th>
                 <th style={thStyle}>Type</th>
               </tr>
             </thead>
@@ -56,8 +56,9 @@ export default function AgencyClientsTable({ clients }: Props) {
                       href={c.companyType === "org" ? `/all-organizations/${c.companyDisplayId}` : `/all-businesses/${c.companyDisplayId}`}
                       style={{ color: "var(--gold-bright)" }}
                     >
-                      {c.companyDisplayId}
+                      {c.companyName}
                     </Link>
+                    <div style={{ fontSize: "0.75rem", color: "var(--gold-dim)", marginTop: "2px" }}>{c.companyDisplayId}</div>
                   </td>
                   <td style={tdStyle}>{c.companyType === "org" ? "Organization" : "Business"}</td>
                 </tr>

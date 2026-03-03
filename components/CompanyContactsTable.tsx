@@ -60,7 +60,7 @@ type Contact = {
   email: string | null;
 };
 
-type AgencyClient = { companyDisplayId: string; companyType: string };
+type AgencyClient = { companyDisplayId: string; companyType: string; companyName?: string };
 
 type Props = {
   contactList: Contact[];
@@ -440,7 +440,7 @@ export default function CompanyContactsTable({
                                     <option value="">—</option>
                                     {agencyClients.map((ac) => (
                                       <option key={ac.companyDisplayId} value={ac.companyDisplayId}>
-                                        {ac.companyDisplayId} ({ac.companyType === "org" ? "Organization" : "Business"})
+                                        {ac.companyName ?? ac.companyDisplayId}
                                       </option>
                                     ))}
                                   </select>
