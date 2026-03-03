@@ -302,7 +302,6 @@ export default function CompanyContactsTable({
                               onChange={(e) => setAction(e.target.value)}
                               style={inputStyle}
                             >
-                              <option value="">Select action</option>
                               {ACTIONS.map((a) => (
                                 <option key={a} value={a}>
                                   {a}
