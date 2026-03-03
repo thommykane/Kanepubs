@@ -10,7 +10,35 @@ type Props = { params: Promise<{ displayId: string }> };
 export default async function AgencyDetailPage({ params }: Props) {
   const { displayId } = await params;
 
-  const [agency] = await db.select().from(agencies).where(eq(agencies.displayId, displayId)).limit(1);
+  let agency: (typeof agencies.$inferSelect) | null = null;
+  try {
+    const [row] = await db.select().from(agencies).where(eq(agencies.displayId, displayId)).limit(1);
+    agency = row ?? null;
+  } catch {
+    const [agencyRow] = await db
+      .select({
+        id: agencies.id,
+        displayId: agencies.displayId,
+        agencyName: agencies.agencyName,
+        address: agencies.address,
+        addressLine2: agencies.addressLine2,
+        city: agencies.city,
+        state: agencies.state,
+        zipCode: agencies.zipCode,
+        phone: agencies.phone,
+        website: agencies.website,
+        createdBy: agencies.createdBy,
+        assignedTo: agencies.assignedTo,
+        createdAt: agencies.createdAt,
+        updatedAt: agencies.updatedAt,
+      })
+      .from(agencies)
+      .where(eq(agencies.displayId, displayId))
+      .limit(1);
+    agency = agencyRow
+      ? { ...agencyRow, agencyType: null, tags: null }
+      : null;
+  }
 
   if (!agency) {
     return (
