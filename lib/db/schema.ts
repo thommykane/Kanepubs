@@ -92,6 +92,8 @@ export const agencies = pgTable("agencies", {
   zipCode: text("zip_code"),
   phone: text("phone"),
   website: text("website"),
+  agencyType: text("agency_type"),
+  tags: text("tags"),
   createdBy: text("created_by"),
   assignedTo: text("assigned_to"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

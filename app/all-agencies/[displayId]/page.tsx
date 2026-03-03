@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, contacts, organizations, businesses } from "@/lib/db/schema";
+import { agencies, agencyClients, contacts, organizations, businesses, proposals } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
 import AgencyProfileContent from "@/components/AgencyProfileContent";
 
@@ -60,6 +60,23 @@ export default async function AgencyDetailPage({ params }: Props) {
         ? orgNames.get(c.companyDisplayId) ?? c.companyDisplayId
         : bizNames.get(c.companyDisplayId) ?? c.companyDisplayId,
   }));
+
+  const [soldStats] = await db
+    .select({
+      transactions: sql<number>`count(*)::int`,
+      moneySpent: sql<string>`coalesce(sum(${proposals.amount}), 0)::text`,
+    })
+    .from(proposals)
+    .where(
+      and(
+        eq(proposals.status, "sold"),
+        eq(proposals.companyType, "agency"),
+        eq(proposals.companyDisplayId, displayId)
+      )
+    );
+
+  const transactions = soldStats?.transactions ?? 0;
+  const moneySpentRaw = soldStats?.moneySpent ?? "0";
 
   const contactList = await db
     .select()
@@ -157,11 +174,38 @@ export default async function AgencyDetailPage({ params }: Props) {
             )}
           </div>
           <div style={infoStyle}>
+            <span style={labelStyle}>Type</span>
+            <span>{agency.agencyType ?? "—"}</span>
+          </div>
+          <div style={infoStyle}>
+            <span style={labelStyle}>Tags</span>
+            <span>{agency.tags ?? "—"}</span>
+          </div>
+          <div style={infoStyle}>
+            <span style={labelStyle}>Created by</span>
+            <span>{agency.createdBy ?? "—"}</span>
+          </div>
+          <div style={infoStyle}>
             <span style={labelStyle}>Assigned to</span>
             <span>{agency.assignedTo ?? "—"}</span>
+          </div>
+          <div style={infoStyle}>
+            <span style={labelStyle}>Transactions</span>
+            <span>{transactions}</span>
+          </div>
+          <div style={infoStyle}>
+            <span style={labelStyle}>Money Spent</span>
+            <span style={{ color: "#39ff14", fontWeight: 700 }}>{formatMoney(moneySpentRaw)}</span>
           </div>
         </div>
       </div>
     </AgencyProfileContent>
   );
+}
+
+function formatMoney(val: string | null | undefined): string {
+  if (val == null || val === "") return "0";
+  const n = Number(val);
+  if (Number.isNaN(n)) return "0";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
