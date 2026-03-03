@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function NewContactPage() {
+function NewContactForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
@@ -189,5 +189,13 @@ export default function NewContactPage() {
         </button>
       </form>
     </main>
+  );
+}
+
+export default function NewContactPage() {
+  return (
+    <Suspense fallback={<main style={{ padding: "1.5rem", maxWidth: "560px" }}><p style={{ color: "var(--gold-dim)" }}>Loading…</p></main>}>
+      <NewContactForm />
+    </Suspense>
   );
 }
