@@ -35,6 +35,7 @@ const ACTION_VALUES: Record<string, string> = {
   "Scheduled Meeting": "scheduled_meeting",
   "Sent Proposal": "sent_proposal",
   "Backdated Proposal": "backdated_proposal",
+  "Backdated Sold": "backdated_sold",
 };
 
 const MONTHS = [
@@ -138,7 +139,7 @@ export default function CompanyContactsTable({
           const time = meetingTime || "12:00";
           body.meetingAt = `${year}-${month}-${day}T${time}:00`;
         }
-        if (actionValue === "sent_proposal" || actionValue === "backdated_proposal") {
+        if (actionValue === "sent_proposal" || actionValue === "backdated_proposal" || actionValue === "backdated_sold") {
           body.proposalData = {
             amount: proposalAmount || undefined,
             issues: proposalIssues.filter((i) => i.issue),
@@ -147,7 +148,7 @@ export default function CompanyContactsTable({
             ...(companyType === "agency" && activityClientDisplayId ? { clientDisplayId: activityClientDisplayId } : {}),
           };
         }
-        if (actionValue === "backdated_proposal") {
+        if (actionValue === "backdated_proposal" || actionValue === "backdated_sold") {
           const bMonth = MONTHS.indexOf(backdatedMonth) >= 0 ? String(MONTHS.indexOf(backdatedMonth) + 1).padStart(2, "0") : "";
           const bDay = backdatedDay ? backdatedDay.padStart(2, "0") : "";
           const bYear = backdatedYear || "";
@@ -384,6 +385,9 @@ export default function CompanyContactsTable({
                                 </option>
                               ))}
                               {isAdmin && <option value="Backdated Proposal">Backdated Proposal</option>}
+                              {isAdmin && !(companyType === "agency" && c.id === "__agency_no_contact__") && (
+                                <option value="Backdated Sold">Backdated Sold</option>
+                              )}
                             </select>
                           </label>
                           <label style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -441,7 +445,7 @@ export default function CompanyContactsTable({
                               </select>
                             </div>
                           )}
-                          {(action === "Sent Proposal" || action === "Backdated Proposal") && (
+                          {(action === "Sent Proposal" || action === "Backdated Proposal" || action === "Backdated Sold") && (
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                               {companyType === "agency" && agencyClients.length > 0 && (
                                 <label style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -546,9 +550,9 @@ export default function CompanyContactsTable({
                               )}
                             </div>
                           )}
-                          {(action === "Sent Proposal" || action === "Backdated Proposal") && (
+                          {(action === "Sent Proposal" || action === "Backdated Proposal" || action === "Backdated Sold") && (
                             <>
-                              {action === "Backdated Proposal" && (
+                              {(action === "Backdated Proposal" || action === "Backdated Sold") && (
                                 <>
                                   <label style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                                     <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Sales Agent</span>
@@ -608,8 +612,9 @@ export default function CompanyContactsTable({
                             disabled={
                               submitting ||
                               !action ||
-                              (action === "Backdated Proposal" &&
-                                (!backdatedSalesAgent || !backdatedMonth || !backdatedDay || !backdatedYear))
+                              ((action === "Backdated Proposal" || action === "Backdated Sold") &&
+                                (!backdatedSalesAgent || !backdatedMonth || !backdatedDay || !backdatedYear)) ||
+                              (action === "Backdated Sold" && companyType === "agency" && c.id === "__agency_no_contact__")
                             }
                             style={{
                               padding: "0.5rem 1rem",

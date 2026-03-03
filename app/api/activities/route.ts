@@ -171,6 +171,85 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, id });
     }
 
+    if (actionTypeTrimmed === "backdated_sold") {
+      const isAdmin = await requireAdmin(req);
+      if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!contactIdVal) {
+        return NextResponse.json(
+          { error: "contactId required for backdated sold" },
+          { status: 400 }
+        );
+      }
+      if (!bodySalesAgent || !backdatedDate) {
+        return NextResponse.json(
+          { error: "salesAgent and backdatedDate required for backdated sold" },
+          { status: 400 }
+        );
+      }
+      const backdatedAt = new Date(String(backdatedDate).trim());
+      if (isNaN(backdatedAt.getTime())) {
+        return NextResponse.json({ error: "Invalid backdatedDate" }, { status: 400 });
+      }
+      const notesTrimmed =
+        notes != null && String(notes).trim() !== ""
+          ? String(notes).trim().slice(0, 50)
+          : null;
+      const activityId = uuid();
+      const proposalId = uuid();
+      const pd =
+        proposalData && typeof proposalData === "object"
+          ? (proposalData as {
+              amount?: string;
+              issues?: { issue: string; year: string; specialFeatures: string }[];
+              geo?: string;
+              impressions?: number;
+            })
+          : null;
+      const issuesVal =
+        pd && Array.isArray(pd.issues)
+          ? (pd.issues as { issue: string; year: string; specialFeatures: string }[])
+          : null;
+      const amountVal = pd?.amount != null ? String(pd.amount).trim() : null;
+      const geoVal = pd?.geo != null ? String(pd.geo).trim() : null;
+      const impressionsVal =
+        pd?.impressions != null && Number.isInteger(Number(pd.impressions))
+          ? Number(pd.impressions)
+          : null;
+
+      await db.insert(activities).values({
+        id: activityId,
+        companyType: String(companyType).trim(),
+        companyDisplayId: String(companyDisplayId).trim(),
+        contactId: contactIdVal,
+        username: String(bodySalesAgent).trim(),
+        actionType: "sold",
+        notes: notesTrimmed,
+        meetingAt: null,
+        proposalData: proposalData ?? null,
+        createdAt: backdatedAt,
+      });
+
+      await db.insert(proposals).values({
+        id: proposalId,
+        companyType: String(companyType).trim(),
+        companyDisplayId: String(companyDisplayId).trim(),
+        contactId: contactIdVal,
+        salesAgent: String(bodySalesAgent).trim(),
+        amount: amountVal,
+        issues: issuesVal,
+        geo: geoVal,
+        impressions: impressionsVal,
+        notes: notesTrimmed,
+        status: "sold",
+        matDue: null,
+        createdAt: backdatedAt,
+        statusUpdatedAt: backdatedAt,
+        assignedTo: String(bodySalesAgent).trim(),
+      });
+
+      return NextResponse.json({ success: true, id: activityId });
+    }
+
     const id = uuid();
     const username = await getCurrentUsername(req);
     const notesTrimmed =
