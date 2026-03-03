@@ -39,6 +39,7 @@ export default function SalesAgentsPage() {
   const [forbidden, setForbidden] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedRank, setSelectedRank] = useState<Record<string, string>>({});
+  const [editedUsername, setEditedUsername] = useState<Record<string, string>>({});
 
   const fetchUsers = useCallback(async () => {
     const res = await fetch("/api/admin/users");
@@ -76,15 +77,31 @@ export default function SalesAgentsPage() {
     setSelectedRank(next);
   }, [list]);
 
-  const handleUpdate = async (id: string) => {
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    list.forEach((u) => {
+      next[u.id] = u.username;
+    });
+    setEditedUsername(next);
+  }, [list]);
+
+  const handleUpdate = async (user: UserRow) => {
+    const id = user.id;
     const accountType = selectedRank[id];
     if (!accountType) return;
+    const usernameVal = (editedUsername[id] ?? user.username).trim();
+    if (!usernameVal) {
+      alert("Username cannot be empty");
+      return;
+    }
     setUpdatingId(id);
     try {
+      const body: { accountType: string; username?: string } = { accountType };
+      if (usernameVal !== user.username) body.username = usernameVal;
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountType }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         await fetchUsers();
@@ -152,9 +169,30 @@ export default function SalesAgentsPage() {
             {list.map((user) => (
               <tr key={user.id}>
                 <td style={tdStyle}>
-                  <Link href={`/u/${encodeURIComponent(user.username)}`} style={{ color: "var(--gold-bright)", fontWeight: 600 }}>
-                    {user.username}
-                  </Link>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                    <input
+                      type="text"
+                      value={editedUsername[user.id] ?? user.username}
+                      onChange={(e) => setEditedUsername((prev) => ({ ...prev, [user.id]: e.target.value }))}
+                      style={{
+                        padding: "0.35rem 0.5rem",
+                        background: "var(--glass)",
+                        border: "1px solid var(--glass-border)",
+                        borderRadius: "6px",
+                        color: "var(--gold-bright)",
+                        fontWeight: 600,
+                        width: "100%",
+                        maxWidth: "200px",
+                      }}
+                      placeholder="Username"
+                    />
+                    <Link
+                      href={`/u/${encodeURIComponent(user.username)}`}
+                      style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}
+                    >
+                      View profile
+                    </Link>
+                  </div>
                 </td>
                 <td style={tdStyle}>{user.email ?? "—"}</td>
                 <td style={tdStyle}>{rankLabel(user)}</td>
@@ -179,7 +217,7 @@ export default function SalesAgentsPage() {
                 <td style={tdStyle}>
                   <button
                     type="button"
-                    onClick={() => handleUpdate(user.id)}
+                    onClick={() => handleUpdate(user)}
                     disabled={updatingId !== null}
                     style={{
                       padding: "0.35rem 0.75rem",

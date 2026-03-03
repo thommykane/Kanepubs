@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, sessions } from "@/lib/db/schema";
 
@@ -14,7 +14,7 @@ async function requireAdmin(req: NextRequest): Promise<boolean> {
 
 const VALID_ACCOUNT_TYPES = ["regional_agent", "national_agent", "admin"] as const;
 
-/** PATCH: Update a user's isAdmin and accountType (admin only). */
+/** PATCH: Update a user's username, isAdmin and accountType (admin only). */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -26,11 +26,31 @@ export async function PATCH(
     }
     const { id } = await params;
     const body = await req.json();
-    const { accountType } = body;
+    const { accountType, username: bodyUsername } = body;
 
     const [target] = await db.select().from(users).where(eq(users.id, id)).limit(1);
     if (!target) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const updates: { accountType?: string; isAdmin?: boolean; username?: string; updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+
+    if (bodyUsername !== undefined) {
+      const usernameTrimmed = String(bodyUsername).trim();
+      if (!usernameTrimmed) {
+        return NextResponse.json({ error: "Username cannot be empty" }, { status: 400 });
+      }
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.username, usernameTrimmed), ne(users.id, id)))
+        .limit(1);
+      if (existing) {
+        return NextResponse.json({ error: "Username already in use" }, { status: 400 });
+      }
+      updates.username = usernameTrimmed;
     }
 
     if (accountType !== undefined) {
@@ -41,15 +61,12 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      const isAdminRole = at === "admin";
-      await db
-        .update(users)
-        .set({
-          accountType: at,
-          isAdmin: isAdminRole,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, id));
+      updates.accountType = at;
+      updates.isAdmin = at === "admin";
+    }
+
+    if (Object.keys(updates).length > 1) {
+      await db.update(users).set(updates).where(eq(users.id, id));
     }
 
     return NextResponse.json({ success: true });
