@@ -116,13 +116,21 @@ export default function SalesAgentsPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        credentials: "include",
       });
       if (res.ok) {
         await refetchUsers();
-      } else {
+        return;
+      }
+      const contentType = res.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
         const data = await res.json();
         alert(data?.error ?? "Failed to update");
+      } else {
+        alert("Update failed. You may have been logged out — try logging in again.");
       }
+    } catch (err) {
+      alert("Update failed. Please try again.");
     } finally {
       setUpdatingId(null);
     }
