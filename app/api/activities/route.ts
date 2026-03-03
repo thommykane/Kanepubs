@@ -13,6 +13,15 @@ async function getCurrentUsername(req: NextRequest): Promise<string> {
   return user?.username ?? "Admin";
 }
 
+async function requireAdmin(req: NextRequest): Promise<boolean> {
+  const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
+  if (!sessionId) return false;
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  if (!session || new Date(session.expiresAt) < new Date()) return false;
+  const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, session.userId)).limit(1);
+  return user?.isAdmin ?? false;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -109,6 +118,8 @@ export async function POST(req: NextRequest) {
       notes,
       meetingAt,
       proposalData,
+      salesAgent: bodySalesAgent,
+      backdatedDate,
     } = body;
 
     if (!companyType || !companyDisplayId || !contactId || !actionType) {
@@ -116,6 +127,40 @@ export async function POST(req: NextRequest) {
         { error: "companyType, companyDisplayId, contactId, actionType required" },
         { status: 400 }
       );
+    }
+
+    const actionTypeTrimmed = String(actionType).trim();
+    if (actionTypeTrimmed === "backdated_proposal") {
+      const isAdmin = await requireAdmin(req);
+      if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!bodySalesAgent || !backdatedDate) {
+        return NextResponse.json(
+          { error: "salesAgent and backdatedDate required for backdated proposal" },
+          { status: 400 }
+        );
+      }
+      const backdatedAt = new Date(String(backdatedDate).trim());
+      if (isNaN(backdatedAt.getTime())) {
+        return NextResponse.json({ error: "Invalid backdatedDate" }, { status: 400 });
+      }
+      const id = uuid();
+      const notesTrimmed =
+        notes != null && String(notes).trim() !== ""
+          ? String(notes).trim().slice(0, 50)
+          : null;
+      await db.insert(activities).values({
+        id,
+        companyType: String(companyType).trim(),
+        companyDisplayId: String(companyDisplayId).trim(),
+        contactId: String(contactId).trim(),
+        username: String(bodySalesAgent).trim(),
+        actionType: "sent_proposal",
+        notes: notesTrimmed,
+        meetingAt: null,
+        proposalData: proposalData ?? null,
+        createdAt: backdatedAt,
+      });
+      return NextResponse.json({ success: true, id });
     }
 
     const id = uuid();
@@ -138,7 +183,7 @@ export async function POST(req: NextRequest) {
       companyDisplayId: String(companyDisplayId).trim(),
       contactId: String(contactId).trim(),
       username,
-      actionType: String(actionType).trim(),
+      actionType: actionTypeTrimmed,
       notes: notesTrimmed,
       meetingAt: meetingAtVal,
       proposalData: proposalData ?? null,

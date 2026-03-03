@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 const ACTIONS = [
   "No Answer",
@@ -34,6 +34,7 @@ const ACTION_VALUES: Record<string, string> = {
   "Blind Email": "blind_email",
   "Scheduled Meeting": "scheduled_meeting",
   "Sent Proposal": "sent_proposal",
+  "Backdated Proposal": "backdated_proposal",
 };
 
 const MONTHS = [
@@ -42,6 +43,7 @@ const MONTHS = [
 ];
 const DAYS_1_31 = Array.from({ length: 31 }, (_, i) => String(i + 1));
 const MEETING_YEARS = Array.from({ length: 12 }, (_, i) => String(new Date().getFullYear() + i));
+const BACKDATED_YEARS = Array.from({ length: new Date().getFullYear() - 2021 + 1 }, (_, i) => String(2021 + i));
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
   const h = Math.floor(i / 2);
   const m = (i % 2) * 30;
@@ -85,6 +87,17 @@ export default function CompanyContactsTable({
   const [proposalGeo, setProposalGeo] = useState("No");
   const [proposalImpressions, setProposalImpressions] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [users, setUsers] = useState<{ id: string; username: string }[]>([]);
+  const [backdatedSalesAgent, setBackdatedSalesAgent] = useState("");
+  const [backdatedMonth, setBackdatedMonth] = useState("");
+  const [backdatedDay, setBackdatedDay] = useState("");
+  const [backdatedYear, setBackdatedYear] = useState("");
+
+  useEffect(() => {
+    fetch("/api/me").then((r) => r.json()).then((d) => setIsAdmin(d?.user?.isAdmin ?? false));
+    fetch("/api/users").then((r) => r.json()).then((d) => setUsers(Array.isArray(d) ? d : []));
+  }, []);
 
   const addIssueRow = () => {
     setProposalIssues((p) => [...p, { issue: "Spring", year: "2026", specialFeatures: "None" }]);
@@ -119,13 +132,22 @@ export default function CompanyContactsTable({
           const time = meetingTime || "12:00";
           body.meetingAt = `${year}-${month}-${day}T${time}:00`;
         }
-        if (actionValue === "sent_proposal") {
+        if (actionValue === "sent_proposal" || actionValue === "backdated_proposal") {
           body.proposalData = {
             amount: proposalAmount || undefined,
             issues: proposalIssues.filter((i) => i.issue),
             geo: proposalGeo || undefined,
             impressions: proposalImpressions ? parseInt(proposalImpressions.replace(/\D/g, "").slice(0, 7), 10) : undefined,
           };
+        }
+        if (actionValue === "backdated_proposal") {
+          const bMonth = MONTHS.indexOf(backdatedMonth) >= 0 ? String(MONTHS.indexOf(backdatedMonth) + 1).padStart(2, "0") : "";
+          const bDay = backdatedDay ? backdatedDay.padStart(2, "0") : "";
+          const bYear = backdatedYear || "";
+          if (backdatedSalesAgent && bYear && bMonth && bDay) {
+            body.salesAgent = backdatedSalesAgent;
+            body.backdatedDate = `${bYear}-${bMonth}-${bDay}`;
+          }
         }
         const res = await fetch("/api/activities", {
           method: "POST",
@@ -144,6 +166,10 @@ export default function CompanyContactsTable({
           setProposalIssues([{ issue: "Spring", year: "2026", specialFeatures: "None" }]);
           setProposalGeo("");
           setProposalImpressions("");
+          setBackdatedSalesAgent("");
+          setBackdatedMonth("");
+          setBackdatedDay("");
+          setBackdatedYear("");
           onActivityCreated?.();
         }
       } finally {
@@ -161,6 +187,10 @@ export default function CompanyContactsTable({
       proposalIssues,
       proposalGeo,
       proposalImpressions,
+      backdatedSalesAgent,
+      backdatedMonth,
+      backdatedDay,
+      backdatedYear,
       companyType,
       companyDisplayId,
       onActivityCreated,
@@ -180,6 +210,10 @@ export default function CompanyContactsTable({
       setProposalIssues([{ issue: "Spring", year: "2026", specialFeatures: "None" }]);
       setProposalGeo("No");
       setProposalImpressions("");
+      setBackdatedSalesAgent("");
+      setBackdatedMonth("");
+      setBackdatedDay("");
+      setBackdatedYear("");
     }
   };
 
@@ -320,11 +354,13 @@ export default function CompanyContactsTable({
                               onChange={(e) => setAction(e.target.value)}
                               style={inputStyle}
                             >
+                              <option value="" disabled>—</option>
                               {ACTIONS.map((a) => (
                                 <option key={a} value={a}>
                                   {a}
                                 </option>
                               ))}
+                              {isAdmin && <option value="Backdated Proposal">Backdated Proposal</option>}
                             </select>
                           </label>
                           <label style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -382,7 +418,7 @@ export default function CompanyContactsTable({
                               </select>
                             </div>
                           )}
-                          {action === "Sent Proposal" && (
+                          {(action === "Sent Proposal" || action === "Backdated Proposal") && (
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                               <label>
                                 <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Amount ($)</span>
@@ -470,10 +506,71 @@ export default function CompanyContactsTable({
                               )}
                             </div>
                           )}
+                          {(action === "Sent Proposal" || action === "Backdated Proposal") && (
+                            <>
+                              {action === "Backdated Proposal" && (
+                                <>
+                                  <label style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                    <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Sales Agent</span>
+                                    <select
+                                      value={backdatedSalesAgent}
+                                      onChange={(e) => setBackdatedSalesAgent(e.target.value)}
+                                      style={{ ...inputStyle, maxWidth: "240px" }}
+                                    >
+                                      <option value="">—</option>
+                                      {users.map((u) => (
+                                        <option key={u.id} value={u.username}>{u.username}</option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                    <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Date (activity date)</span>
+                                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                                      <select
+                                        value={backdatedMonth}
+                                        onChange={(e) => setBackdatedMonth(e.target.value)}
+                                        style={{ ...inputStyle, minWidth: "100px" }}
+                                      >
+                                        <option value="">Month</option>
+                                        {MONTHS.map((m) => (
+                                          <option key={m} value={m}>{m}</option>
+                                        ))}
+                                      </select>
+                                      <select
+                                        value={backdatedDay}
+                                        onChange={(e) => setBackdatedDay(e.target.value)}
+                                        style={{ ...inputStyle, minWidth: "70px" }}
+                                      >
+                                        <option value="">Day</option>
+                                        {DAYS_1_31.map((d) => (
+                                          <option key={d} value={d}>{d}</option>
+                                        ))}
+                                      </select>
+                                      <select
+                                        value={backdatedYear}
+                                        onChange={(e) => setBackdatedYear(e.target.value)}
+                                        style={{ ...inputStyle, minWidth: "80px" }}
+                                      >
+                                        <option value="">Year</option>
+                                        {BACKDATED_YEARS.map((y) => (
+                                          <option key={y} value={y}>{y}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </>
+                          )}
                           <button
                             type="button"
                             onClick={() => submitActivity(c.id)}
-                            disabled={submitting || !action}
+                            disabled={
+                              submitting ||
+                              !action ||
+                              (action === "Backdated Proposal" &&
+                                (!backdatedSalesAgent || !backdatedMonth || !backdatedDay || !backdatedYear))
+                            }
                             style={{
                               padding: "0.5rem 1rem",
                               background: "var(--gold)",
