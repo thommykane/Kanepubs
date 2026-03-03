@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       assignedTo: username,
     });
 
-    return NextResponse.json({ success: true, id });
+    return NextResponse.json({ success: true, id, displayId });
   } catch (err) {
     console.error("[api/businesses POST]", err);
     return NextResponse.json({ error: "Failed to create business" }, { status: 500 });

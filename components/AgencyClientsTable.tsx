@@ -6,9 +6,10 @@ type Client = { companyDisplayId: string; companyType: string; companyName?: str
 
 type Props = {
   clients: Client[];
+  agencyDisplayId: string;
 };
 
-export default function AgencyClientsTable({ clients }: Props) {
+export default function AgencyClientsTable({ clients, agencyDisplayId }: Props) {
   const thStyle: React.CSSProperties = {
     padding: "10px 12px",
     fontSize: "0.75rem",
@@ -25,9 +26,41 @@ export default function AgencyClientsTable({ clients }: Props) {
 
   return (
     <>
-      <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", marginBottom: "0.75rem" }}>
-        Clients
-      </h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
+        <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", margin: 0 }}>
+          Clients
+        </h2>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <Link
+            href={`/new-organization?agencyId=${encodeURIComponent(agencyDisplayId)}`}
+            style={{
+              padding: "0.4rem 0.75rem",
+              background: "var(--gold)",
+              color: "var(--bg)",
+              borderRadius: "6px",
+              fontWeight: 600,
+              fontSize: "0.875rem",
+              textDecoration: "none",
+            }}
+          >
+            Add Organization
+          </Link>
+          <Link
+            href={`/new-business?agencyId=${encodeURIComponent(agencyDisplayId)}`}
+            style={{
+              padding: "0.4rem 0.75rem",
+              background: "var(--gold)",
+              color: "var(--bg)",
+              borderRadius: "6px",
+              fontWeight: 600,
+              fontSize: "0.875rem",
+              textDecoration: "none",
+            }}
+          >
+            Add Business
+          </Link>
+        </div>
+      </div>
       <div
         style={{
           background: "var(--glass)",

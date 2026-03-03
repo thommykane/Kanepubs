@@ -52,7 +52,7 @@ export default function AgencyProfileContent({
         }}
       >
         {children}
-        <AgencyClientsTable clients={clients} />
+        <AgencyClientsTable clients={clients} agencyDisplayId={agencyDisplayId} />
         <CompanyContactsTable
           contactList={contactList}
           companyType="agency"

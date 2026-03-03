@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const BUSINESS_TYPES = [
   "Hotel",
@@ -87,6 +87,7 @@ const US_STATES = [
 
 export default function NewBusinessPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [form, setForm] = useState({
@@ -101,7 +102,13 @@ export default function NewBusinessPage() {
     website: "",
     businessType: "",
     tags: "",
+    agencyId: "",
   });
+
+  useEffect(() => {
+    const agencyId = searchParams.get("agencyId") ?? "";
+    if (agencyId) setForm((prev) => ({ ...prev, agencyId }));
+  }, [searchParams]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -114,16 +121,29 @@ export default function NewBusinessPage() {
     setStatus("submitting");
     setErrorMessage("");
     try {
+      const { agencyId, ...submitPayload } = form;
       const res = await fetch("/api/businesses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(submitPayload),
       });
       const data = await res.json();
       if (!res.ok) {
         setErrorMessage(data.error || "Failed to create business");
         setStatus("error");
         return;
+      }
+      const agencyIdTrimmed = agencyId?.trim() ?? "";
+      if (agencyIdTrimmed && data.displayId) {
+        const linkRes = await fetch(`/api/agencies/${encodeURIComponent(agencyIdTrimmed)}/clients`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyDisplayId: data.displayId, companyType: "business" }),
+        });
+        if (linkRes.ok) {
+          router.push(`/all-agencies/${encodeURIComponent(agencyIdTrimmed)}`);
+          return;
+        }
       }
       router.push("/all-businesses");
     } catch {
@@ -160,6 +180,21 @@ export default function NewBusinessPage() {
             style={inputStyle}
           />
         </label>
+        {form.agencyId && (
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+            <span style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>
+              Add as client of Agency (ID)
+            </span>
+            <input
+              type="text"
+              name="agencyId"
+              value={form.agencyId}
+              onChange={handleChange}
+              readOnly
+              style={{ ...inputStyle, opacity: 0.9 }}
+            />
+          </label>
+        )}
         <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           <span style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>
             Business Address or PO Box *

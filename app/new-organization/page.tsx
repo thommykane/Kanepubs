@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const ORGANIZATION_TYPES = [
   "CVB (City)",
@@ -73,6 +73,7 @@ const US_STATES = [
 
 export default function NewOrganizationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [form, setForm] = useState({
@@ -87,7 +88,13 @@ export default function NewOrganizationPage() {
     website: "",
     organizationType: "",
     tags: "",
+    agencyId: "",
   });
+
+  useEffect(() => {
+    const agencyId = searchParams.get("agencyId") ?? "";
+    if (agencyId) setForm((prev) => ({ ...prev, agencyId }));
+  }, [searchParams]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -100,10 +107,11 @@ export default function NewOrganizationPage() {
     setStatus("submitting");
     setErrorMessage("");
     try {
+      const { agencyId, ...submitPayload } = form;
       const res = await fetch("/api/organizations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(submitPayload),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -116,6 +124,18 @@ export default function NewOrganizationPage() {
         }
         setStatus("error");
         return;
+      }
+      const agencyIdTrimmed = agencyId?.trim() ?? "";
+      if (agencyIdTrimmed && data.displayId) {
+        const linkRes = await fetch(`/api/agencies/${encodeURIComponent(agencyIdTrimmed)}/clients`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyDisplayId: data.displayId, companyType: "org" }),
+        });
+        if (linkRes.ok) {
+          router.push(`/all-agencies/${encodeURIComponent(agencyIdTrimmed)}`);
+          return;
+        }
       }
       router.push("/all-organizations");
     } catch {
@@ -152,6 +172,21 @@ export default function NewOrganizationPage() {
             style={inputStyle}
           />
         </label>
+        {form.agencyId && (
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+            <span style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>
+              Add as client of Agency (ID)
+            </span>
+            <input
+              type="text"
+              name="agencyId"
+              value={form.agencyId}
+              onChange={handleChange}
+              readOnly
+              style={{ ...inputStyle, opacity: 0.9 }}
+            />
+          </label>
+        )}
         <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           <span style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>
             Organization Address or PO Box *
