@@ -37,12 +37,13 @@ export default function SalesAgentsPage() {
   const [list, setList] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedRank, setSelectedRank] = useState<Record<string, string>>({});
   const [editedUsername, setEditedUsername] = useState<Record<string, string>>({});
 
   const fetchUsers = useCallback(async () => {
-    const res = await fetch("/api/admin/users");
+    const res = await fetch("/api/admin/users", { credentials: "include" });
     if (res.status === 403) {
       setForbidden(true);
       setList([]);
@@ -54,21 +55,33 @@ export default function SalesAgentsPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const timeoutId = setTimeout(() => {
+      if (!cancelled && loading) {
+        setLoading(false);
+        setLoadError("Request timed out. Log in as an admin and refresh.");
+      }
+    }, 12000);
     async function run() {
+      setLoadError(null);
       try {
-        const meRes = await fetch("/api/me");
+        const meRes = await fetch("/api/me", { credentials: "include" });
         const meJson = await meRes.json();
         if (!meJson?.user?.isAdmin) {
           if (!cancelled) setForbidden(true);
           return;
         }
         await fetchUsers();
+      } catch (err) {
+        if (!cancelled) setLoadError("Could not load. Log in as admin and try again.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [fetchUsers]);
 
   useEffect(() => {
@@ -135,11 +148,21 @@ export default function SalesAgentsPage() {
     color: "var(--gold-bright)",
   };
 
-  if (loading) return <div style={{ padding: "1rem", color: "var(--gold-dim)" }}>Loading…</div>;
+  if (loading && !loadError) return <div style={{ padding: "1rem", color: "var(--gold-dim)" }}>Loading…</div>;
   if (forbidden) {
     return (
       <div style={{ padding: "1rem" }}>
         <p style={{ color: "var(--gold-dim)" }}>You must be an admin to view this page.</p>
+        <Link href="/login" style={{ color: "var(--gold-bright)", marginRight: "1rem" }}>Log in</Link>
+        <Link href="/" style={{ color: "var(--gold-bright)" }}>Go home</Link>
+      </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <div style={{ padding: "1rem" }}>
+        <p style={{ color: "var(--gold-dim)" }}>{loadError}</p>
+        <Link href="/login" style={{ color: "var(--gold-bright)", marginRight: "1rem" }}>Log in</Link>
         <Link href="/" style={{ color: "var(--gold-bright)" }}>Go home</Link>
       </div>
     );
