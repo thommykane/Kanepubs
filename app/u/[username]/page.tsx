@@ -49,8 +49,8 @@ export default async function UserProfilePage({ params }: Props) {
               Sales Agents
             </Link>
           </p>
-          <p style={{ marginBottom: "0.5rem", marginLeft: "1rem", fontSize: "0.95rem" }}>
-            <Link href="/all-activity" style={{ color: "var(--gold-bright)" }}>
+          <p style={{ marginBottom: "0.5rem" }}>
+            <Link href="/all-activity" style={{ color: "var(--gold-bright)", fontWeight: 600 }}>
               All Activity
             </Link>
           </p>
