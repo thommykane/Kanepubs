@@ -55,15 +55,17 @@ export default function SalesAgentsPage() {
   useEffect(() => {
     let cancelled = false;
     async function run() {
-      const meRes = await fetch("/api/me");
-      const meJson = await meRes.json();
-      if (!meJson?.user?.isAdmin) {
-        if (!cancelled) setForbidden(true);
-        setLoading(false);
-        return;
+      try {
+        const meRes = await fetch("/api/me");
+        const meJson = await meRes.json();
+        if (!meJson?.user?.isAdmin) {
+          if (!cancelled) setForbidden(true);
+          return;
+        }
+        await fetchUsers();
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      await fetchUsers();
-      if (!cancelled) setLoading(false);
     }
     run();
     return () => { cancelled = true; };
