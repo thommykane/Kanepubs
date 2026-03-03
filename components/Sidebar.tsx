@@ -3,29 +3,26 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const MENU_LINKS = [
-  { href: "/new-contact", label: "New Contact" },
+const NEW_ENTRY_LINKS = [
   { href: "/new-organization", label: "New Organization" },
   { href: "/new-business", label: "New Business" },
+  { href: "/new-contact", label: "New Contact" },
 ];
 
-const LEADS_LINKS = [
-  { href: "/all-contacts", label: "All Contacts" },
+const NEW_MEDIA_LINKS = [
   { href: "/all-organizations", label: "All Organizations" },
   { href: "/all-businesses", label: "All Businesses" },
 ];
 
 const LIVE_ACTIVITY_LINKS_ADMIN = [
-  { href: "/all-activity", label: "All Activity" },
   { href: "/active-proposals", label: "Active Proposals" },
-  { href: "/active-ios", label: "Active I/O's" },
-  { href: "/sold", label: "SOLD" },
+  { href: "/active-ios", label: "Active IOs" },
+  { href: "/sold", label: "Sold" },
 ];
 
 const LIVE_ACTIVITY_LINKS_AGENT = [
-  { href: "/all-activity", label: "All Activity" },
   { href: "/active-proposals", label: "Active Proposals" },
-  { href: "/active-ios", label: "Active I/O's" },
+  { href: "/active-ios", label: "Active IOs" },
 ];
 
 const MY_ACCOUNT_LINKS = [
@@ -36,6 +33,7 @@ const MY_ACCOUNT_LINKS = [
 ];
 
 const ADMIN_LINKS = [
+  { href: "/all-contacts", label: "All Contacts" },
   { href: "/all-clients", label: "All Clients" },
   { href: "/csv-uploads", label: "CSV UPLOADS" },
 ];
@@ -122,18 +120,22 @@ export default function Sidebar() {
       </Link>
 
       <nav style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0.5rem 0" }}>
-        {MENU_LINKS.map(({ href, label }) => (
+        {NEW_ENTRY_LINKS.map(({ href, label }) => (
           <Link key={href} href={href} style={linkStyle}>
             {label}
           </Link>
         ))}
 
+        <div style={{ height: "0.75rem" }} />
+
         <div style={sectionBarStyle}>New Media</div>
-        {LEADS_LINKS.map(({ href, label }) => (
+        {NEW_MEDIA_LINKS.map(({ href, label }) => (
           <Link key={href} href={href} style={linkStyle}>
             {label}
           </Link>
         ))}
+
+        <div style={{ height: "0.75rem" }} />
 
         <div style={sectionBarStyle}>Live Activity</div>
         {liveLinks.map(({ href, label }) => (
@@ -141,6 +143,8 @@ export default function Sidebar() {
             {label}
           </Link>
         ))}
+
+        <div style={{ height: "0.75rem" }} />
 
         <div style={sectionBarStyle}>My Account</div>
         {MY_ACCOUNT_LINKS.map(({ href, label }) => (
@@ -151,6 +155,7 @@ export default function Sidebar() {
 
         {isAdmin === true && (
           <>
+            <div style={{ height: "0.75rem" }} />
             <div style={sectionBarStyle}>Administrative</div>
             {ADMIN_LINKS.map(({ href, label }) => (
               <Link key={href} href={href} style={linkStyle}>

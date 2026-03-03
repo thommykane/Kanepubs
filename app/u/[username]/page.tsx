@@ -45,9 +45,14 @@ export default async function UserProfilePage({ params }: Props) {
               Change Password
             </Link>
           </p>
-          <p style={{ marginBottom: "0.5rem" }}>
+          <p style={{ marginBottom: "0.25rem" }}>
             <Link href="/u/admin/sales-agents" style={{ color: "var(--gold-bright)", fontWeight: 600 }}>
               Sales Agents
+            </Link>
+          </p>
+          <p style={{ marginBottom: "0.5rem", marginLeft: "1rem", fontSize: "0.95rem" }}>
+            <Link href="/all-activity" style={{ color: "var(--gold-bright)" }}>
+              All Activity
             </Link>
           </p>
         </>
