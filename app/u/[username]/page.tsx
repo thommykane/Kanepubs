@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import ProfileDashboard from "@/components/ProfileDashboard";
 
 type Props = { params: Promise<{ username: string }> };
 
@@ -51,9 +52,7 @@ export default async function UserProfilePage({ params }: Props) {
           </p>
         </>
       )}
-      <p style={{ color: "var(--gold-dim)", fontSize: "0.9rem" }}>
-        Profile page. More content can be added here later.
-      </p>
+      <ProfileDashboard profileUsername={user.username} />
     </div>
   );
 }
