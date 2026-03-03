@@ -32,6 +32,7 @@ type Row = {
   contact: Contact;
   businessName: string | null;
   organizationName: string | null;
+  agencyName: string | null;
 };
 
 const ISSUE_OPTIONS = ["Spring", "Summer", "Fall", "Winter", "Holiday Edition", "Special Edition"];
@@ -66,7 +67,7 @@ export default function SoldPage() {
   const [selectedYear, setSelectedYear] = useState<string>(""); // "" = current year Jan–Mar only; "2025" etc. = that full year Dec→Jan
 
   const fetchList = useCallback(async () => {
-    const res = await fetch("/api/proposals?status=sold");
+    const res = await fetch("/api/proposals?status=sold", { cache: "no-store" });
     const data = await res.json();
     setList(Array.isArray(data) ? data : []);
   }, []);
@@ -255,11 +256,14 @@ export default function SoldPage() {
     return issues.map((i) => `${i.issue} ${i.year}${i.specialFeatures && i.specialFeatures !== "None" ? ` (${i.specialFeatures})` : ""}`).join(", ");
   };
 
-  const companyName = (row: Row) => row.businessName ?? row.organizationName ?? row.proposal.companyDisplayId;
+  const companyName = (row: Row) =>
+    row.businessName ?? row.organizationName ?? row.agencyName ?? row.proposal.companyDisplayId;
   const companyHref = (row: Row) =>
-    row.proposal.companyType === "org"
-      ? `/all-organizations/${row.proposal.companyDisplayId}`
-      : `/all-businesses/${row.proposal.companyDisplayId}`;
+    row.proposal.companyType === "agency"
+      ? `/all-agencies/${row.proposal.companyDisplayId}`
+      : row.proposal.companyType === "org"
+        ? `/all-organizations/${row.proposal.companyDisplayId}`
+        : `/all-businesses/${row.proposal.companyDisplayId}`;
 
   const addedAt = (row: Row) => {
     const raw = row.proposal.statusUpdatedAt ?? row.proposal.createdAt;

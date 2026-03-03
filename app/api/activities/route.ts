@@ -186,7 +186,8 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      const backdatedAt = new Date(String(backdatedDate).trim());
+      const dateStr = String(backdatedDate).trim();
+      const backdatedAt = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00.000Z`);
       if (isNaN(backdatedAt.getTime())) {
         return NextResponse.json({ error: "Invalid backdatedDate" }, { status: 400 });
       }

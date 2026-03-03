@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { proposals, contacts, businesses, organizations } from "@/lib/db/schema";
+import { proposals, contacts, businesses, organizations, agencies } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 
 export async function GET(req: NextRequest) {
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
         contact: contacts,
         businessName: businesses.businessName,
         organizationName: organizations.organizationName,
+        agencyName: agencies.agencyName,
       })
       .from(proposals)
       .leftJoin(contacts, eq(proposals.contactId, contacts.id))
@@ -37,6 +38,13 @@ export async function GET(req: NextRequest) {
         and(
           eq(proposals.companyType, "org"),
           eq(proposals.companyDisplayId, organizations.displayId)
+        )
+      )
+      .leftJoin(
+        agencies,
+        and(
+          eq(proposals.companyType, "agency"),
+          eq(proposals.companyDisplayId, agencies.displayId)
         )
       )
       .where(eq(proposals.status, status))
