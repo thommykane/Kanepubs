@@ -33,8 +33,15 @@ export default function CreateUserPage() {
 
   useEffect(() => {
     fetch("/api/me")
-      .then((r) => r.json())
-      .then((data) => {
+      .then(async (r) => {
+        const text = await r.text();
+        let data: { user?: { isAdmin?: boolean } } = {};
+        try {
+          if (text) data = JSON.parse(text);
+        } catch {
+          setChecking(false);
+          return;
+        }
         if (!data?.user?.isAdmin) router.replace("/");
         setChecking(false);
       })
@@ -57,7 +64,15 @@ export default function CreateUserPage() {
           temporaryPassword,
         }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: { error?: string } = {};
+      try {
+        if (text) data = JSON.parse(text);
+      } catch {
+        setError("Invalid response from server");
+        setLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "Failed to create user");
       router.push("/u/Admin");
       router.refresh();
