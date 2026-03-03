@@ -66,6 +66,12 @@ export default function SoldPage() {
     setList(Array.isArray(data) ? data : []);
   }, []);
 
+  const fetchUsers = useCallback(async () => {
+    const res = await fetch("/api/users");
+    const d = await res.json();
+    setUsers(Array.isArray(d) ? d : []);
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     fetchList().finally(() => setLoading(false));
@@ -73,10 +79,11 @@ export default function SoldPage() {
 
   useEffect(() => {
     fetch("/api/me").then((r) => r.json()).then((d) => setIsAdmin(d?.user?.isAdmin ?? false));
-    fetch("/api/users").then((r) => r.json()).then((d) => setUsers(Array.isArray(d) ? d : []));
-  }, []);
+    fetchUsers();
+  }, [fetchUsers]);
 
   const openEditModal = (row: Row) => {
+    fetchUsers(); // refetch so dropdown includes newly created users (e.g. joecosta)
     setEditModal(row);
     setEditSalesAgent(row.proposal.salesAgent);
     setEditAmount(row.proposal.amount ?? "");
@@ -472,7 +479,10 @@ export default function SoldPage() {
                   {users.map((u) => (
                     <option key={u.id} value={u.username}>{u.username}</option>
                   ))}
-                  {users.length === 0 && <option value={editSalesAgent}>{editSalesAgent}</option>}
+                  {editSalesAgent && !users.some((u) => u.username === editSalesAgent) && (
+                    <option value={editSalesAgent}>{editSalesAgent}</option>
+                  )}
+                  {users.length === 0 && !editSalesAgent && <option value="">—</option>}
                 </select>
               </label>
               <label>
