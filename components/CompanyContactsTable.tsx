@@ -207,11 +207,29 @@ export default function CompanyContactsTable({
     maxWidth: "240px",
   };
 
+  const newContactHref = `/new-contact?businessId=${encodeURIComponent(companyDisplayId)}`;
+
   return (
     <>
-      <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", marginBottom: "0.75rem" }}>
-        Contacts
-      </h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
+        <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", margin: 0 }}>
+          Contacts
+        </h2>
+        <Link
+          href={newContactHref}
+          style={{
+            padding: "0.4rem 0.75rem",
+            background: "var(--gold)",
+            color: "var(--bg)",
+            borderRadius: "6px",
+            fontWeight: 600,
+            fontSize: "0.875rem",
+            textDecoration: "none",
+          }}
+        >
+          Add contact
+        </Link>
+      </div>
       <div
         style={{
           background: "var(--glass)",
@@ -222,11 +240,11 @@ export default function CompanyContactsTable({
       >
         {contactList.length === 0 ? (
           <div style={{ padding: "1.5rem", color: "var(--gold-dim)", fontSize: "0.875rem" }}>
-            No contacts associated yet. Add one from{" "}
-            <Link href="/new-contact" style={{ color: "var(--gold-bright)" }}>
-              New Contact
+            No contacts associated yet.{" "}
+            <Link href={newContactHref} style={{ color: "var(--gold-bright)" }}>
+              Add a contact
             </Link>{" "}
-            and enter {companyType === "org" ? "Organization" : "Business"} ID {companyDisplayId}.
+            and the {companyType === "org" ? "Organization" : "Business"} ID will be pre-filled.
           </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>

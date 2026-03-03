@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function NewContactPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [form, setForm] = useState({
@@ -16,6 +17,13 @@ export default function NewContactPage() {
     email: "",
     businessId: "",
   });
+
+  useEffect(() => {
+    const id = searchParams.get("businessId");
+    if (id != null && id !== "") {
+      setForm((prev) => ({ ...prev, businessId: id }));
+    }
+  }, [searchParams]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>
