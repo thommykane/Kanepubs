@@ -96,12 +96,21 @@ export default function ActiveIOsPage() {
     const day = matDueDay ? matDueDay.padStart(2, "0") : "";
     const year = matDueYear || "";
     const matDue = year && month && day ? `${year}-${month}-${day}` : undefined;
+    if (!matDue) {
+      alert("Please fill out Materials Due Date (Month, Day, Year).");
+      return;
+    }
+    const matDueDate = new Date(year + "-" + month + "-" + day);
+    if (matDueDate < new Date(new Date().setHours(0, 0, 0, 0))) {
+      alert("Clients can't send materials back in time.");
+      return;
+    }
     setActioningId(soldModal.id);
     try {
       const res = await fetch(`/api/proposals/${soldModal.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "sold", matDue: matDue || undefined }),
+        body: JSON.stringify({ status: "sold", matDue }),
       });
       if (res.ok) {
         setSoldModal(null);

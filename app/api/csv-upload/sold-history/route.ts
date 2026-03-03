@@ -71,6 +71,7 @@ const COLUMN_MAP: Record<string, string> = {
   "sold time": "soldTime",
   "sold amount": "soldAmount",
   "amount": "soldAmount",
+  "notes": "notes",
 };
 
 function mapRow(raw: Record<string, string>): Record<string, string> {
@@ -180,6 +181,9 @@ export async function POST(req: NextRequest) {
       const firstName = String(row.firstName).trim();
       const lastName = String(row.lastName).trim();
       const agent = String(row.agent).trim();
+      const notesVal = row.notes != null && String(row.notes).trim() !== ""
+        ? String(row.notes).trim().slice(0, 50)
+        : null;
 
       let contactId: string;
       const [existingContact] = await db
@@ -224,6 +228,7 @@ export async function POST(req: NextRequest) {
         issues: null,
         geo: null,
         impressions: null,
+        notes: notesVal,
         status: "sold",
         matDue: null,
         createdAt: soldAt,

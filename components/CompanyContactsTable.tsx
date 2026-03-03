@@ -81,13 +81,13 @@ export default function CompanyContactsTable({
   const [proposalAmount, setProposalAmount] = useState("");
   const [proposalIssues, setProposalIssues] = useState<
     { issue: string; year: string; specialFeatures: string }[]
-  >([{ issue: "", year: "2024", specialFeatures: "None" }]);
-  const [proposalGeo, setProposalGeo] = useState("");
+  >([{ issue: "", year: "2026", specialFeatures: "None" }]);
+  const [proposalGeo, setProposalGeo] = useState("No");
   const [proposalImpressions, setProposalImpressions] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const addIssueRow = () => {
-    setProposalIssues((p) => [...p, { issue: "", year: "2024", specialFeatures: "None" }]);
+    setProposalIssues((p) => [...p, { issue: "", year: "2026", specialFeatures: "None" }]);
   };
 
   const updateIssue = (index: number, field: "issue" | "year" | "specialFeatures", value: string) => {
@@ -141,7 +141,7 @@ export default function CompanyContactsTable({
           setMeetingYear("");
           setMeetingTime("");
           setProposalAmount("");
-          setProposalIssues([{ issue: "", year: "2024", specialFeatures: "None" }]);
+          setProposalIssues([{ issue: "", year: "2026", specialFeatures: "None" }]);
           setProposalGeo("");
           setProposalImpressions("");
           onActivityCreated?.();
@@ -177,8 +177,8 @@ export default function CompanyContactsTable({
       setMeetingYear("");
       setMeetingTime("");
       setProposalAmount("");
-      setProposalIssues([{ issue: "", year: "2024", specialFeatures: "None" }]);
-      setProposalGeo("");
+      setProposalIssues([{ issue: "", year: "2026", specialFeatures: "None" }]);
+      setProposalGeo("No");
       setProposalImpressions("");
     }
   };
@@ -436,9 +436,8 @@ export default function CompanyContactsTable({
                                   onChange={(e) => setProposalGeo(e.target.value)}
                                   style={{ ...inputStyle, marginLeft: "8px", maxWidth: "80px" }}
                                 >
-                                  <option value="">—</option>
-                                  <option value="Yes">Yes</option>
                                   <option value="No">No</option>
+                                  <option value="Yes">Yes</option>
                                 </select>
                               </label>
                               {proposalGeo === "Yes" && (

@@ -25,7 +25,7 @@ const CONTACTS_HEADERS =
   "First Name*,Last Name*,Title,Office Number*,Cell Number*,Email*,Business or Organization ID*";
 
 const SOLD_HISTORY_HEADERS =
-  "Business or organization ID*,First Name*,Last Name*,Agent*,Sold Date*,Sold time*,Sold Amount*";
+  "Business or organization ID*,First Name*,Last Name*,Agent*,Sold Date*,Sold time*,Sold Amount*,Notes";
 
 export default function CSVUploadsPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -432,6 +432,7 @@ export default function CSVUploadsPage() {
           <li>Business or organization ID* (display ID, e.g. A00000028)</li>
           <li>First Name*, Last Name*, Agent*</li>
           <li>Sold Date*, Sold time*, Sold Amount*</li>
+          <li>Notes (optional; max 50 chars; appears in Notes section on SOLD page)</li>
         </ul>
         <p style={{ color: "var(--gold-dim)", fontSize: "0.75rem", marginBottom: "1rem" }}>
           Date/time can be like 01/15/2024 and 2:30 PM, or ISO format. Amount can include $ and commas. If the contact does not exist, one will be created for that organization/business.
