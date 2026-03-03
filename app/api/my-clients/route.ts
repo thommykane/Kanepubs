@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 
     const lastActivityByCompany = new Map<
       string,
-      { createdAt: string; actionType: string; contactId: string }
+      { createdAt: string; actionType: string; contactId: string | null }
     >();
     for (const a of allActivities) {
       const key = `${a.companyType}:${a.companyDisplayId}`;
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
         lastActivityByCompany.set(key, {
           createdAt: String(a.createdAt),
           actionType: a.actionType,
-          contactId: a.contactId,
+          contactId: a.contactId ?? null,
         });
       }
     }
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
     for (const row of soldProposals) {
       const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
       const last = lastActivityByCompany.get(key);
-      if (last) contactIds.add(last.contactId);
+      if (last?.contactId) contactIds.add(last.contactId);
     }
     const contactList =
       contactIds.size > 0
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
     const list = soldProposals.map((row) => {
       const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
       const last = lastActivityByCompany.get(key);
-      const contact = last ? contactMap.get(last.contactId) : null;
+      const contact = last?.contactId ? contactMap.get(last.contactId) : null;
       const companyName =
         row.proposal.companyType === "business"
           ? row.businessName ?? row.proposal.companyDisplayId
