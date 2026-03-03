@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, contacts, sessions, users } from "@/lib/db/schema";
+import { agencies, agencyClients, sessions, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
 import { getNextAgencyDisplayId } from "@/lib/next-display-id";
@@ -88,18 +88,6 @@ export async function POST(req: NextRequest) {
         companyType,
       });
     }
-
-    const contactId = uuid();
-    await db.insert(contacts).values({
-      id: contactId,
-      firstName: String(agencyName).trim(),
-      lastName: " (Agency)",
-      title: "Agency",
-      officeNumber: String(phone).trim() || null,
-      email: null,
-      businessId: displayId,
-      assignedTo: username,
-    });
 
     return NextResponse.json({ success: true, id: agencyId, displayId });
   } catch (err) {

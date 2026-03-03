@@ -112,7 +112,7 @@ export const activities = pgTable("activities", {
   id: text("id").primaryKey(),
   companyType: text("company_type").notNull(), // 'org' | 'business' | 'agency'
   companyDisplayId: text("company_display_id").notNull(),
-  contactId: text("contact_id").notNull(),
+  contactId: text("contact_id"), // null allowed when companyType is 'agency' (log activity without a contact)
   username: text("username").notNull(),
   actionType: text("action_type").notNull(),
   notes: text("notes"), // max 50 chars enforced in app

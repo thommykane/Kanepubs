@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { contacts, businesses, organizations, sessions, users } from "@/lib/db/schema";
+import { contacts, businesses, organizations, agencies, sessions, users } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
@@ -41,10 +41,12 @@ export async function GET(req: NextRequest) {
         businessWebsite: businesses.website,
         organizationName: organizations.organizationName,
         organizationWebsite: organizations.website,
+        agencyName: agencies.agencyName,
       })
       .from(contacts)
       .leftJoin(businesses, eq(contacts.businessId, businesses.displayId))
       .leftJoin(organizations, eq(contacts.businessId, organizations.displayId))
+      .leftJoin(agencies, eq(contacts.businessId, agencies.displayId))
       .orderBy(desc(contacts.createdAt));
     return NextResponse.json(list);
   } catch (err) {

@@ -19,6 +19,7 @@ type Contact = {
   businessWebsite: string | null;
   organizationName: string | null;
   organizationWebsite: string | null;
+  agencyName: string | null;
 };
 
 type UserOption = { id: string; username: string };
@@ -318,12 +319,12 @@ export default function AllContactsPage() {
                   <td style={tdStyleCreated}>{formatCreated(c.createdAt)}</td>
                   <td style={tdStyleAssigned}>{c.assignedTo ?? "Admin"}</td>
                   <td style={tdStyle}>
-                    {c.businessId && (c.businessName ?? c.organizationName ?? c.businessId) ? (
+                    {c.businessId && (c.businessName ?? c.organizationName ?? c.agencyName ?? c.businessId) ? (
                       <Link
-                        href={c.businessId.toUpperCase().startsWith("A") ? `/all-organizations/${c.businessId}` : `/all-businesses/${c.businessId}`}
+                        href={c.businessId.toUpperCase().startsWith("AG") ? `/all-agencies/${c.businessId}` : c.businessId.toUpperCase().startsWith("A") ? `/all-organizations/${c.businessId}` : `/all-businesses/${c.businessId}`}
                         style={{ color: "var(--gold-bright)", fontWeight: 700 }}
                       >
-                        {c.businessName ?? c.organizationName ?? c.businessId}
+                        {c.businessName ?? c.organizationName ?? c.agencyName ?? c.businessId}
                       </Link>
                     ) : (
                       "—"

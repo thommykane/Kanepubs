@@ -122,12 +122,20 @@ export async function POST(req: NextRequest) {
       backdatedDate,
     } = body;
 
-    if (!companyType || !companyDisplayId || !contactId || !actionType) {
+    if (!companyType || !companyDisplayId || !actionType) {
       return NextResponse.json(
-        { error: "companyType, companyDisplayId, contactId, actionType required" },
+        { error: "companyType, companyDisplayId, actionType required" },
         { status: 400 }
       );
     }
+    const isAgency = String(companyType).trim() === "agency";
+    if (!isAgency && (!contactId || String(contactId).trim() === "")) {
+      return NextResponse.json(
+        { error: "contactId required for non-agency activity" },
+        { status: 400 }
+      );
+    }
+    const contactIdVal = contactId != null && String(contactId).trim() !== "" ? String(contactId).trim() : null;
 
     const actionTypeTrimmed = String(actionType).trim();
     if (actionTypeTrimmed === "backdated_proposal") {
@@ -152,7 +160,7 @@ export async function POST(req: NextRequest) {
         id,
         companyType: String(companyType).trim(),
         companyDisplayId: String(companyDisplayId).trim(),
-        contactId: String(contactId).trim(),
+        contactId: contactIdVal,
         username: String(bodySalesAgent).trim(),
         actionType: "sent_proposal",
         notes: notesTrimmed,
@@ -181,7 +189,7 @@ export async function POST(req: NextRequest) {
       id,
       companyType: String(companyType).trim(),
       companyDisplayId: String(companyDisplayId).trim(),
-      contactId: String(contactId).trim(),
+      contactId: contactIdVal,
       username,
       actionType: actionTypeTrimmed,
       notes: notesTrimmed,
@@ -189,7 +197,7 @@ export async function POST(req: NextRequest) {
       proposalData: proposalData ?? null,
     });
 
-    if (String(actionType).trim() === "sent_proposal" && proposalData && typeof proposalData === "object") {
+    if (String(actionType).trim() === "sent_proposal" && proposalData && typeof proposalData === "object" && contactIdVal) {
       const pd = proposalData as { amount?: string; issues?: { issue: string; year: string; specialFeatures: string }[]; geo?: string; impressions?: number };
       const proposalId = uuid();
       const issuesVal = Array.isArray(pd.issues) ? (pd.issues as { issue: string; year: string; specialFeatures: string }[]) : null;
@@ -197,7 +205,7 @@ export async function POST(req: NextRequest) {
         id: proposalId,
         companyType: String(companyType).trim(),
         companyDisplayId: String(companyDisplayId).trim(),
-        contactId: String(contactId).trim(),
+        contactId: contactIdVal,
         salesAgent: username,
         amount: pd.amount != null ? String(pd.amount).trim() : null,
         issues: issuesVal,

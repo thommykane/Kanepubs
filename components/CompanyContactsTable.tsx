@@ -122,10 +122,11 @@ export default function CompanyContactsTable({
       setSubmitting(true);
       try {
         const actionValue = ACTION_VALUES[action] ?? action;
+        const isAgencyNoContact = companyType === "agency" && contactId === "__agency_no_contact__";
         const body: Record<string, unknown> = {
           companyType,
           companyDisplayId,
-          contactId,
+          contactId: isAgencyNoContact ? null : contactId,
           actionType: actionValue,
           notes: notes.slice(0, 50) || undefined,
         };
@@ -252,6 +253,19 @@ export default function CompanyContactsTable({
 
   const newContactHref = `/new-contact?businessId=${encodeURIComponent(companyDisplayId)}`;
 
+  const AGENCY_NO_CONTACT: Contact = {
+    id: "__agency_no_contact__",
+    firstName: null,
+    lastName: null,
+    title: null,
+    officeNumber: null,
+    cellNumber: null,
+    email: null,
+  };
+  const displayList =
+    companyType === "agency" && contactList.length === 0 ? [AGENCY_NO_CONTACT] : contactList;
+  const showEmptyState = contactList.length === 0 && companyType !== "agency";
+
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
@@ -281,7 +295,7 @@ export default function CompanyContactsTable({
           overflow: "hidden",
         }}
       >
-        {contactList.length === 0 ? (
+        {showEmptyState ? (
           <div style={{ padding: "1.5rem", color: "var(--gold-dim)", fontSize: "0.875rem" }}>
             No contacts associated yet.{" "}
             <Link href={newContactHref} style={{ color: "var(--gold-bright)" }}>
@@ -303,7 +317,7 @@ export default function CompanyContactsTable({
               </tr>
             </thead>
             <tbody>
-              {contactList.map((c) => (
+              {displayList.map((c) => (
                 <React.Fragment key={c.id}>
                   <tr
                     style={{ borderBottom: "1px solid var(--glass-border)", height: "44px" }}
@@ -323,7 +337,7 @@ export default function CompanyContactsTable({
                           fontWeight: 600,
                         }}
                       >
-                        Contact
+                        {c.id === "__agency_no_contact__" ? "Log activity" : "Contact"}
                       </button>
                     </td>
                     <td style={tdStyle}>{c.firstName ?? "—"}</td>
