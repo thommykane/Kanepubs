@@ -96,8 +96,7 @@ export default function SalesAgentsPage() {
     }
     setUpdatingId(id);
     try {
-      const body: { accountType: string; username?: string } = { accountType };
-      if (usernameVal !== user.username) body.username = usernameVal;
+      const body: { accountType: string; username: string } = { accountType, username: usernameVal };
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -153,12 +152,12 @@ export default function SalesAgentsPage() {
 
       <div style={sectionStyle}>
         <p style={{ color: "var(--gold-dim)", fontSize: "0.9rem", marginBottom: "1rem" }}>
-          Users and their rank. Change the dropdown and click Update to save; the list refreshes immediately.
+          Edit usernames in the first column and/or change rank; click Update to save.
         </p>
         <table style={tableStyle}>
           <thead>
             <tr>
-              <th style={thStyle}>Username</th>
+              <th style={thStyle}>Username (editable)</th>
               <th style={thStyle}>Email</th>
               <th style={thStyle}>Current rank</th>
               <th style={thStyle}>Change to</th>
@@ -172,17 +171,19 @@ export default function SalesAgentsPage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                     <input
                       type="text"
+                      aria-label="Edit username"
                       value={editedUsername[user.id] ?? user.username}
                       onChange={(e) => setEditedUsername((prev) => ({ ...prev, [user.id]: e.target.value }))}
                       style={{
-                        padding: "0.35rem 0.5rem",
-                        background: "var(--glass)",
-                        border: "1px solid var(--glass-border)",
+                        padding: "0.5rem 0.6rem",
+                        background: "var(--bg)",
+                        border: "2px solid var(--gold-dim)",
                         borderRadius: "6px",
                         color: "var(--gold-bright)",
                         fontWeight: 600,
-                        width: "100%",
-                        maxWidth: "200px",
+                        minWidth: "160px",
+                        maxWidth: "220px",
+                        fontSize: "0.9rem",
                       }}
                       placeholder="Username"
                     />
