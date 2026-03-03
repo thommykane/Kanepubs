@@ -40,6 +40,8 @@ const SPECIAL_FEATURES = ["None", "Inside Front Cover", "Inside Back Cover", "Ba
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAYS_1_31 = Array.from({ length: 31 }, (_, i) => String(i + 1));
 const MAT_DUE_YEARS = Array.from({ length: 12 }, (_, i) => String(new Date().getFullYear() + i));
+const CURRENT_YEAR = new Date().getFullYear();
+const PREVIOUS_YEAR_OPTIONS = ["2025", "2024", "2023", "2022", "2021"];
 
 export default function SoldPage() {
   const [list, setList] = useState<Row[]>([]);
@@ -61,6 +63,7 @@ export default function SoldPage() {
   const [editMatDueYear, setEditMatDueYear] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string>(""); // "" = current year Jan–Mar only; "2025" etc. = that full year Dec→Jan
 
   const fetchList = useCallback(async () => {
     const res = await fetch("/api/proposals?status=sold");
@@ -175,8 +178,30 @@ export default function SoldPage() {
   };
 
   const groupedByMonthYear = useMemo(() => {
+    const getYearMonth = (row: Row): { y: number; m: number } | null => {
+      const soldAt = row.proposal.statusUpdatedAt ?? row.proposal.createdAt;
+      if (!soldAt) return null;
+      try {
+        const d = new Date(soldAt);
+        return { y: d.getFullYear(), m: d.getMonth() + 1 };
+      } catch {
+        return null;
+      }
+    };
+    const currentYear = new Date().getFullYear();
+    const filtered =
+      selectedYear === ""
+        ? list.filter((row) => {
+            const ym = getYearMonth(row);
+            return ym !== null && ym.y === currentYear;
+          })
+        : list.filter((row) => {
+            const ym = getYearMonth(row);
+            return ym !== null && ym.y === parseInt(selectedYear, 10);
+          });
+
     const map = new Map<string, Row[]>();
-    for (const row of list) {
+    for (const row of filtered) {
       const soldAt = row.proposal.statusUpdatedAt ?? row.proposal.createdAt;
       let key = "Unknown";
       if (soldAt) {
@@ -190,9 +215,24 @@ export default function SoldPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(row);
     }
-    const keys = Array.from(map.keys()).sort((a, b) => (b > a ? 1 : -1));
+    // Sort rows within each month by date descending (newest first)
+    map.forEach((rows, key) => {
+      rows.sort((a, b) => {
+        const ta = new Date(a.proposal.statusUpdatedAt ?? a.proposal.createdAt ?? 0).getTime();
+        const tb = new Date(b.proposal.statusUpdatedAt ?? b.proposal.createdAt ?? 0).getTime();
+        return tb - ta;
+      });
+    });
+    const keys = Array.from(map.keys());
+    // Newest month first (e.g. April, March, Feb, Jan for current year; Dec → Jan for previous)
+    keys.sort((a, b) => {
+      const [ay, am] = a.split("-").map(Number);
+      const [by, bm] = b.split("-").map(Number);
+      if (ay !== by) return by - ay;
+      return bm - am;
+    });
     return keys.map((key) => ({ key, rows: map.get(key)! }));
-  }, [list]);
+  }, [list, selectedYear]);
 
   const formatMonthYear = (key: string) => {
     if (key === "Unknown") return key;
@@ -250,22 +290,49 @@ export default function SoldPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
         <h1 style={{ color: "var(--gold-bright)", margin: 0 }}>SOLD</h1>
         {!loading && list.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setPurgeConfirm(true)}
-            style={{
-              padding: "0.5rem 0.75rem",
-              background: "transparent",
-              color: "#e57373",
-              border: "1px solid #e57373",
-              borderRadius: "6px",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontSize: "0.875rem",
-            }}
-          >
-            Purge all sales
-          </button>
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <label style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>
+                Show:
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLSelectElement).blur()}
+                  style={{
+                    marginLeft: "0.5rem",
+                    padding: "0.4rem 0.6rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    fontSize: "0.9rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">Current year ({CURRENT_YEAR})</option>
+                  {PREVIOUS_YEAR_OPTIONS.map((y) => (
+                    <option key={y} value={y}>{y} (Dec → Jan)</option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => setPurgeConfirm(true)}
+                style={{
+                  padding: "0.5rem 0.75rem",
+                  background: "transparent",
+                  color: "#e57373",
+                  border: "1px solid #e57373",
+                  borderRadius: "6px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                }}
+              >
+                Purge all sales
+              </button>
+            </div>
+          </>
         )}
       </div>
       {purgeConfirm && (
@@ -320,6 +387,10 @@ export default function SoldPage() {
         <p style={{ color: "var(--gold-dim)" }}>Loading…</p>
       ) : list.length === 0 ? (
         <p style={{ color: "var(--gold-dim)" }}>No sold deals yet.</p>
+      ) : groupedByMonthYear.length === 0 ? (
+        <p style={{ color: "var(--gold-dim)" }}>
+          {selectedYear === "" ? `No sales this year (${CURRENT_YEAR}).` : `No sales in ${selectedYear}.`}
+        </p>
       ) : (
         groupedByMonthYear.map(({ key, rows }) => (
           <div key={key} style={{ marginBottom: "2rem" }}>
