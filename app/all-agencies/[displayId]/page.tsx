@@ -36,7 +36,7 @@ export default async function AgencyDetailPage({ params }: Props) {
       .where(eq(agencies.displayId, displayId))
       .limit(1);
     agency = agencyRow
-      ? { ...agencyRow, agencyType: null, tags: null }
+      ? { ...agencyRow, agencyType: null, tags: null, transactions: 0, moneySpent: "0" }
       : null;
   }
 
