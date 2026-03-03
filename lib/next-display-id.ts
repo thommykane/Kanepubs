@@ -1,15 +1,16 @@
 import { db } from "@/lib/db";
-import { businesses, organizations } from "@/lib/db/schema";
+import { businesses, organizations, agencies } from "@/lib/db/schema";
 
 /**
  * Parses a display ID to its numeric part. Handles:
- * - Prefixed: A00000001, B00000002 → 1, 2
+ * - Prefixed: A00000001, B00000002, AG00000001 → 1, 2, 1
  * - Legacy numeric-only: 00000001 → 1
  */
 function parseDisplayIdNumber(displayId: string | null): number | null {
   if (!displayId || typeof displayId !== "string") return null;
   const s = displayId.trim();
   if (/^[AB]\d{1,8}$/.test(s)) return parseInt(s.slice(1), 10);
+  if (/^AG\d{1,8}$/.test(s)) return parseInt(s.slice(2), 10);
   if (/^\d+$/.test(s)) return parseInt(s, 10);
   return null;
 }
@@ -34,4 +35,15 @@ export async function getMaxDisplayNumber(): Promise<number> {
 export async function getNextDisplayId(): Promise<string> {
   const maxNum = await getMaxDisplayNumber();
   return String(maxNum + 1).padStart(8, "0");
+}
+
+/** Returns the next agency display ID (e.g. AG00000001). */
+export async function getNextAgencyDisplayId(): Promise<string> {
+  const rows = await db.select({ displayId: agencies.displayId }).from(agencies);
+  let maxNum = 0;
+  for (const r of rows) {
+    const n = parseDisplayIdNumber(r.displayId);
+    if (n != null && n > maxNum) maxNum = n;
+  }
+  return "AG" + String(maxNum + 1).padStart(8, "0");
 }

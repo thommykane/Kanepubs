@@ -60,11 +60,14 @@ type Contact = {
   email: string | null;
 };
 
+type AgencyClient = { companyDisplayId: string; companyType: string };
+
 type Props = {
   contactList: Contact[];
   companyType: string;
   companyDisplayId: string;
   onActivityCreated?: () => void;
+  agencyClients?: AgencyClient[];
 };
 
 export default function CompanyContactsTable({
@@ -72,9 +75,11 @@ export default function CompanyContactsTable({
   companyType,
   companyDisplayId,
   onActivityCreated,
+  agencyClients = [],
 }: Props) {
   const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
   const [action, setAction] = useState("");
+  const [activityClientDisplayId, setActivityClientDisplayId] = useState("");
   const [notes, setNotes] = useState("");
   const [meetingMonth, setMeetingMonth] = useState("");
   const [meetingDay, setMeetingDay] = useState("");
@@ -138,6 +143,7 @@ export default function CompanyContactsTable({
             issues: proposalIssues.filter((i) => i.issue),
             geo: proposalGeo || undefined,
             impressions: proposalImpressions ? parseInt(proposalImpressions.replace(/\D/g, "").slice(0, 7), 10) : undefined,
+            ...(companyType === "agency" && activityClientDisplayId ? { clientDisplayId: activityClientDisplayId } : {}),
           };
         }
         if (actionValue === "backdated_proposal") {
@@ -170,6 +176,7 @@ export default function CompanyContactsTable({
           setBackdatedMonth("");
           setBackdatedDay("");
           setBackdatedYear("");
+          setActivityClientDisplayId("");
           onActivityCreated?.();
         }
       } finally {
@@ -193,6 +200,7 @@ export default function CompanyContactsTable({
       backdatedYear,
       companyType,
       companyDisplayId,
+      activityClientDisplayId,
       onActivityCreated,
     ]
   );
@@ -214,6 +222,7 @@ export default function CompanyContactsTable({
       setBackdatedMonth("");
       setBackdatedDay("");
       setBackdatedYear("");
+      setActivityClientDisplayId("");
     }
   };
 
@@ -420,6 +429,23 @@ export default function CompanyContactsTable({
                           )}
                           {(action === "Sent Proposal" || action === "Backdated Proposal") && (
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                              {companyType === "agency" && agencyClients.length > 0 && (
+                                <label style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                  <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Client (this call regarding)</span>
+                                  <select
+                                    value={activityClientDisplayId}
+                                    onChange={(e) => setActivityClientDisplayId(e.target.value)}
+                                    style={{ ...inputStyle, maxWidth: "280px" }}
+                                  >
+                                    <option value="">—</option>
+                                    {agencyClients.map((ac) => (
+                                      <option key={ac.companyDisplayId} value={ac.companyDisplayId}>
+                                        {ac.companyDisplayId} ({ac.companyType === "org" ? "Organization" : "Business"})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
                               <label>
                                 <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Amount ($)</span>
                                 <input

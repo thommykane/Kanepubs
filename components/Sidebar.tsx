@@ -6,12 +6,14 @@ import { useEffect, useState } from "react";
 const NEW_ENTRY_LINKS = [
   { href: "/new-organization", label: "New Organization" },
   { href: "/new-business", label: "New Business" },
+  { href: "/new-agency", label: "New Agency" },
   { href: "/new-contact", label: "New Contact" },
 ];
 
 const NEW_MEDIA_LINKS = [
   { href: "/all-organizations", label: "All Organizations" },
   { href: "/all-businesses", label: "All Businesses" },
+  { href: "/all-agencies", label: "All Agencies" },
 ];
 
 const LIVE_ACTIVITY_LINKS_ADMIN = [

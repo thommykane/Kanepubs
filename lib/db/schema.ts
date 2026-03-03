@@ -81,10 +81,36 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const agencies = pgTable("agencies", {
+  id: text("id").primaryKey(),
+  displayId: text("display_id").unique().notNull(),
+  agencyName: text("agency_name").notNull(),
+  address: text("address"),
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  phone: text("phone"),
+  website: text("website"),
+  createdBy: text("created_by"),
+  assignedTo: text("assigned_to"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+/** Agency clients: businesses or organizations the agency represents (by display ID). */
+export const agencyClients = pgTable("agency_clients", {
+  id: text("id").primaryKey(),
+  agencyId: text("agency_id").notNull().references(() => agencies.id, { onDelete: "cascade" }),
+  companyDisplayId: text("company_display_id").notNull(),
+  companyType: text("company_type").notNull(), // 'org' | 'business'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 /** Contact actions logged on company profile (No Answer, Left Voicemail, Sent Proposal, etc.) */
 export const activities = pgTable("activities", {
   id: text("id").primaryKey(),
-  companyType: text("company_type").notNull(), // 'org' | 'business'
+  companyType: text("company_type").notNull(), // 'org' | 'business' | 'agency'
   companyDisplayId: text("company_display_id").notNull(),
   contactId: text("contact_id").notNull(),
   username: text("username").notNull(),

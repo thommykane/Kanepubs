@@ -228,7 +228,11 @@ export default function RecentActivity({ companyType, companyDisplayId, refreshT
                   <div style={{ color: "var(--gold-dim)", marginTop: "2px" }}>{a.notes}</div>
                 )}
                 <div style={{ color: "var(--gold-dim)", marginTop: "4px" }}>
-                  {[a.contactFirstName, a.contactLastName].filter(Boolean).join(" ") || "Contact"} · {a.username} · {formatDate(a.createdAt)}
+                  {[a.contactFirstName, a.contactLastName].filter(Boolean).join(" ") || "Contact"} · {a.username}
+                  {a.proposalData != null && typeof a.proposalData === "object" && (a.proposalData as { clientDisplayId?: string }).clientDisplayId && (
+                    <> · re: {(a.proposalData as { clientDisplayId: string }).clientDisplayId}</>
+                  )}
+                  {" · "}{formatDate(a.createdAt)}
                 </div>
                 </div>
               </li>
