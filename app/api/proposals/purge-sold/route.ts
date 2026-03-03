@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { proposals, activities, sessions, users, businesses, organizations } from "@/lib/db/schema";
+import { proposals, activities, sessions, users, businesses, organizations, agencies } from "@/lib/db/schema";
 
 async function requireAdmin(req: NextRequest): Promise<boolean> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
             })
             .where(eq(businesses.id, b.id));
         }
-      } else {
+      } else if (p.companyType === "org") {
         const [o] = await db.select().from(organizations).where(eq(organizations.displayId, p.companyDisplayId)).limit(1);
         if (o) {
           const currentMoney = o.moneySpent != null ? Number(o.moneySpent) : 0;
@@ -52,6 +52,19 @@ export async function POST(req: NextRequest) {
               transactions: Math.max(0, currentTx - 1),
             })
             .where(eq(organizations.id, o.id));
+        }
+      } else if (p.companyType === "agency") {
+        const [a] = await db.select().from(agencies).where(eq(agencies.displayId, p.companyDisplayId)).limit(1);
+        if (a) {
+          const currentMoney = a.moneySpent != null ? Number(a.moneySpent) : 0;
+          const currentTx = a.transactions ?? 0;
+          await db
+            .update(agencies)
+            .set({
+              moneySpent: Math.max(0, currentMoney - amount).toFixed(2),
+              transactions: Math.max(0, currentTx - 1),
+            })
+            .where(eq(agencies.id, a.id));
         }
       }
     }

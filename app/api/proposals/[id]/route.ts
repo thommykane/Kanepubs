@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { proposals, activities, sessions, users, businesses, organizations, contacts } from "@/lib/db/schema";
+import { proposals, activities, sessions, users, businesses, organizations, agencies, contacts } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
@@ -185,6 +185,23 @@ export async function PATCH(
             })
             .where(eq(organizations.id, o.id));
         }
+      } else if (proposal.companyType === "agency") {
+        const [a] = await db
+          .select({ id: agencies.id, moneySpent: agencies.moneySpent, transactions: agencies.transactions })
+          .from(agencies)
+          .where(eq(agencies.displayId, proposal.companyDisplayId))
+          .limit(1);
+        if (a) {
+          const currentMoney = a.moneySpent != null ? Number(a.moneySpent) : 0;
+          const currentTx = a.transactions ?? 0;
+          await db
+            .update(agencies)
+            .set({
+              moneySpent: (currentMoney + saleAmount).toFixed(2),
+              transactions: currentTx + 1,
+            })
+            .where(eq(agencies.id, a.id));
+        }
       }
 
       return NextResponse.json({ success: true });
@@ -224,7 +241,7 @@ export async function DELETE(
             transactions: Math.max(0, currentTx - 1),
           }).where(eq(businesses.id, b.id));
         }
-      } else {
+      } else if (proposal.companyType === "org") {
         const [o] = await db.select().from(organizations).where(eq(organizations.displayId, proposal.companyDisplayId)).limit(1);
         if (o) {
           const currentMoney = o.moneySpent != null ? Number(o.moneySpent) : 0;
@@ -233,6 +250,16 @@ export async function DELETE(
             moneySpent: Math.max(0, currentMoney - amount).toFixed(2),
             transactions: Math.max(0, currentTx - 1),
           }).where(eq(organizations.id, o.id));
+        }
+      } else if (proposal.companyType === "agency") {
+        const [a] = await db.select().from(agencies).where(eq(agencies.displayId, proposal.companyDisplayId)).limit(1);
+        if (a) {
+          const currentMoney = a.moneySpent != null ? Number(a.moneySpent) : 0;
+          const currentTx = a.transactions ?? 0;
+          await db.update(agencies).set({
+            moneySpent: Math.max(0, currentMoney - amount).toFixed(2),
+            transactions: Math.max(0, currentTx - 1),
+          }).where(eq(agencies.id, a.id));
         }
       }
     }

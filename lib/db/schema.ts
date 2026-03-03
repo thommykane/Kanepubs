@@ -96,6 +96,8 @@ export const agencies = pgTable("agencies", {
   tags: text("tags"),
   createdBy: text("created_by"),
   assignedTo: text("assigned_to"),
+  transactions: integer("transactions").default(0),
+  moneySpent: numeric("money_spent", { precision: 12, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

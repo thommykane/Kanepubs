@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, contacts, organizations, businesses, proposals } from "@/lib/db/schema";
+import { agencies, agencyClients, contacts, organizations, businesses } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
 import AgencyProfileContent from "@/components/AgencyProfileContent";
 
@@ -89,22 +89,8 @@ export default async function AgencyDetailPage({ params }: Props) {
         : bizNames.get(c.companyDisplayId) ?? c.companyDisplayId,
   }));
 
-  const [soldStats] = await db
-    .select({
-      transactions: sql<number>`count(*)::int`,
-      moneySpent: sql<string>`coalesce(sum(${proposals.amount}), 0)::text`,
-    })
-    .from(proposals)
-    .where(
-      and(
-        eq(proposals.status, "sold"),
-        eq(proposals.companyType, "agency"),
-        eq(proposals.companyDisplayId, displayId)
-      )
-    );
-
-  const transactions = soldStats?.transactions ?? 0;
-  const moneySpentRaw = soldStats?.moneySpent ?? "0";
+  const transactions = agency.transactions ?? 0;
+  const moneySpentRaw = agency.moneySpent != null ? String(agency.moneySpent) : "0";
 
   const contactList = await db
     .select()
