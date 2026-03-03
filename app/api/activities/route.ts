@@ -216,11 +216,13 @@ export async function POST(req: NextRequest) {
         pd?.impressions != null && Number.isInteger(Number(pd.impressions))
           ? Number(pd.impressions)
           : null;
+      const companyTypeNorm = String(companyType).trim().toLowerCase();
+      const companyDisplayIdNorm = String(companyDisplayId).trim();
 
       await db.insert(activities).values({
         id: activityId,
-        companyType: String(companyType).trim(),
-        companyDisplayId: String(companyDisplayId).trim(),
+        companyType: companyTypeNorm,
+        companyDisplayId: companyDisplayIdNorm,
         contactId: contactIdVal,
         username: String(bodySalesAgent).trim(),
         actionType: "sold",
@@ -232,8 +234,8 @@ export async function POST(req: NextRequest) {
 
       await db.insert(proposals).values({
         id: proposalId,
-        companyType: String(companyType).trim(),
-        companyDisplayId: String(companyDisplayId).trim(),
+        companyType: companyTypeNorm,
+        companyDisplayId: companyDisplayIdNorm,
         contactId: contactIdVal,
         salesAgent: String(bodySalesAgent).trim(),
         amount: amountVal,

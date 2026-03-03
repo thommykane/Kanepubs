@@ -161,6 +161,7 @@ export default function CompanyContactsTable({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
+          credentials: "include",
         });
         if (res.ok) {
           setExpandedContactId(null);
