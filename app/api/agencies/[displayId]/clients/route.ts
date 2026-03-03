@@ -11,7 +11,11 @@ export async function POST(
 ) {
   try {
     const { displayId } = await params;
-    const [agency] = await db.select().from(agencies).where(eq(agencies.displayId, displayId)).limit(1);
+    const [agency] = await db
+      .select({ id: agencies.id })
+      .from(agencies)
+      .where(eq(agencies.displayId, displayId))
+      .limit(1);
     if (!agency) return NextResponse.json({ error: "Agency not found" }, { status: 404 });
 
     const body = await req.json();

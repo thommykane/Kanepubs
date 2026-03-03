@@ -17,7 +17,21 @@ async function getCurrentUsername(req: NextRequest): Promise<string> {
 
 export async function GET() {
   try {
-    const list = await db.select().from(agencies).orderBy(desc(agencies.createdAt));
+    const list = await db
+      .select({
+        id: agencies.id,
+        displayId: agencies.displayId,
+        agencyName: agencies.agencyName,
+        address: agencies.address,
+        city: agencies.city,
+        state: agencies.state,
+        zipCode: agencies.zipCode,
+        phone: agencies.phone,
+        website: agencies.website,
+        createdAt: agencies.createdAt,
+      })
+      .from(agencies)
+      .orderBy(desc(agencies.createdAt));
     return NextResponse.json(list);
   } catch (err) {
     console.error("[api/agencies GET]", err);
