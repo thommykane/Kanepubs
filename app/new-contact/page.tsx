@@ -55,8 +55,14 @@ function NewContactForm() {
       }
       if (form.businessId.trim()) {
         const id = form.businessId.trim();
-        const isOrg = id.toUpperCase().startsWith("A");
-        router.push(isOrg ? `/all-organizations/${id}` : `/all-businesses/${id}`);
+        const upper = id.toUpperCase();
+        if (upper.startsWith("AG")) {
+          router.push(`/all-agencies/${id}`);
+        } else if (upper.startsWith("A")) {
+          router.push(`/all-organizations/${id}`);
+        } else {
+          router.push(`/all-businesses/${id}`);
+        }
       } else {
         router.push("/all-contacts");
       }
