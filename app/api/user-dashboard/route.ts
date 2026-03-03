@@ -31,17 +31,17 @@ const US_STATES = [
   "VA", "WA", "WV", "WI", "WY",
 ].sort();
 
-async function getCurrentUser(req: NextRequest): Promise<{ username: string } | null> {
+async function getCurrentUser(req: NextRequest): Promise<{ username: string; isAdmin: boolean } | null> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
   if (!sessionId) return null;
   const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
   if (!session || new Date(session.expiresAt) < new Date()) return null;
   const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
   if (!user) return null;
-  return { username: user.username };
+  return { username: user.username, isAdmin: user.isAdmin ?? false };
 }
 
-/** GET: Dashboard data for the current user only (same shape as admin dashboard). */
+/** GET: Dashboard data. Current user's data by default; admins can pass ?for=username to see another user's dashboard. */
 export async function GET(req: NextRequest) {
   try {
     const currentUser = await getCurrentUser(req);
@@ -49,7 +49,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const username = currentUser.username;
+    const { searchParams } = new URL(req.url);
+    const forUsername = searchParams.get("for")?.trim();
+    let username: string;
+    if (forUsername && currentUser.isAdmin) {
+      const [target] = await db.select({ username: users.username }).from(users).where(eq(users.username, forUsername)).limit(1);
+      if (!target) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      username = target.username;
+    } else {
+      username = currentUser.username;
+    }
     const allProposals = await db.select().from(proposals);
     const allActivities = await db.select().from(activities);
 

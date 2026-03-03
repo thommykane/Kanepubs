@@ -85,12 +85,15 @@ export default function ProfileDashboard({ profileUsername }: Props) {
         const meRes = await fetch("/api/me");
         const meJson = await meRes.json();
         const username = meJson?.user?.username ?? null;
+        const isAdmin = meJson?.user?.isAdmin ?? false;
         if (!cancelled) setCurrentUsername(username);
-        if (!username || username !== profileUsername) {
+        const canView = username === profileUsername || isAdmin;
+        if (!canView) {
           if (!cancelled) setLoading(false);
           return;
         }
-        const res = await fetch("/api/user-dashboard");
+        const url = username === profileUsername ? "/api/user-dashboard" : `/api/user-dashboard?for=${encodeURIComponent(profileUsername)}`;
+        const res = await fetch(url);
         if (res.ok) {
           const json = await res.json();
           if (!cancelled) setData(json);
@@ -103,14 +106,17 @@ export default function ProfileDashboard({ profileUsername }: Props) {
     return () => { cancelled = true; };
   }, [profileUsername]);
 
-  if (loading) return <div style={{ padding: "0.5rem 0", color: "var(--gold-dim)", fontSize: "0.9rem" }}>Loading your dashboard…</div>;
-  if (currentUsername !== profileUsername || !data) return null;
+  if (loading) return <div style={{ padding: "0.5rem 0", color: "var(--gold-dim)", fontSize: "0.9rem" }}>Loading dashboard…</div>;
+  if (!data) return null;
+  const isOwnProfile = currentUsername === profileUsername;
 
   const totalSales = data.totalSalesForPct || 1;
 
   return (
     <div style={{ marginTop: "1.5rem" }}>
-      <h2 style={{ color: "var(--gold-bright)", fontSize: "1.1rem", marginBottom: "1rem" }}>My sales</h2>
+      <h2 style={{ color: "var(--gold-bright)", fontSize: "1.1rem", marginBottom: "1rem" }}>
+        {isOwnProfile ? "My sales" : `${profileUsername}'s sales`}
+      </h2>
 
       <div style={sectionStyle}>
         <h3 style={{ color: "var(--gold-bright)", fontSize: "1rem", marginBottom: "0.75rem" }}>Totals</h3>
