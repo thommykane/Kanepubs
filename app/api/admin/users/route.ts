@@ -2,70 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, sessions } from "@/lib/db/schema";
-import bcrypt from "bcryptjs";
-import { v4 as uuid } from "uuid";
 
-async function requireAdmin(req: NextRequest): Promise<NextResponse | null> {
+async function requireAdmin(req: NextRequest): Promise<boolean> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
-  if (!sessionId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!sessionId) return false;
   const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-  if (!session || new Date(session.expiresAt) < new Date()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
-  if (!user || !user.isAdmin) return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  return null;
+  if (!session || new Date(session.expiresAt) < new Date()) return false;
+  const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, session.userId)).limit(1);
+  return user?.isAdmin ?? false;
 }
 
-const ACCOUNT_TYPES = [
-  { value: "regional_agent", label: "Regional Sales Agent" },
-  { value: "national_agent", label: "National Sales Agent" },
-  { value: "admin", label: "Admin" },
-] as const;
-
-export async function POST(req: NextRequest) {
+/** GET: List all users with id, username, email, isAdmin, accountType (admin only). */
+export async function GET(req: NextRequest) {
   try {
-    const authErr = await requireAdmin(req);
-    if (authErr) return authErr;
-
-    const body = await req.json();
-    const { username, email, phone, accountType, temporaryPassword } = body;
-
-    if (!username || !email || !temporaryPassword) {
-      return NextResponse.json(
-        { error: "Username, email, and temporary password required" },
-        { status: 400 }
-      );
+    const isAdmin = await requireAdmin(req);
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const validTypes = ACCOUNT_TYPES.map((t) => t.value);
-    const type = accountType && validTypes.includes(accountType) ? accountType : "regional_agent";
-
-    const emailTrim = String(email).trim().toLowerCase();
-    const usernameTrim = String(username).trim();
-
-    const [existingEmail] = await db.select().from(users).where(eq(users.email, emailTrim)).limit(1);
-    if (existingEmail) {
-      return NextResponse.json({ error: "Email already in use" }, { status: 400 });
-    }
-    const [existingUsername] = await db.select().from(users).where(eq(users.username, usernameTrim)).limit(1);
-    if (existingUsername) {
-      return NextResponse.json({ error: "Username already in use" }, { status: 400 });
-    }
-
-    const passwordHash = await bcrypt.hash(String(temporaryPassword), 10);
-    const id = uuid();
-    await db.insert(users).values({
-      id,
-      email: emailTrim,
-      username: usernameTrim,
-      passwordHash,
-      phone: phone != null ? String(phone).trim() || null : null,
-      accountType: type,
-      isAdmin: type === "admin",
-      mustChangePassword: true,
-    });
-
-    return NextResponse.json({ success: true, id, username: usernameTrim });
+    const list = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        isAdmin: users.isAdmin,
+        accountType: users.accountType,
+      })
+      .from(users)
+      .orderBy(users.username);
+    return NextResponse.json(list);
   } catch (err) {
-    console.error("[api/admin/users POST]", err);
-    return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
+    console.error("[api/admin/users GET]", err);
+    return NextResponse.json({ error: "Failed to list users" }, { status: 500 });
   }
 }
