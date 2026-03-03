@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { proposals, activities, sessions, users, businesses, organizations } from "@/lib/db/schema";
+import { proposals, activities, sessions, users, businesses, organizations, contacts } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
@@ -29,7 +29,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { status, matDue, adminEdit, salesAgent, assignedTo, amount, issues, geo, impressions, notes } = body;
+    const { status, matDue, adminEdit, salesAgent, assignedTo, amount, issues, geo, impressions, notes, contactId: bodyContactId } = body;
 
     const [proposal] = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
     if (!proposal) {
@@ -63,6 +63,13 @@ export async function PATCH(
       }
       if (notes !== undefined)
         updates.notes = notes != null && String(notes).trim() !== "" ? String(notes).trim().slice(0, 50) : null;
+      if (bodyContactId != null && String(bodyContactId).trim() !== "") {
+        const contactIdVal = String(bodyContactId).trim();
+        const [contact] = await db.select({ id: contacts.id, businessId: contacts.businessId }).from(contacts).where(eq(contacts.id, contactIdVal)).limit(1);
+        if (contact && contact.businessId === proposal.companyDisplayId) {
+          updates.contactId = contactIdVal;
+        }
+      }
       if (Object.keys(updates).length > 0) {
         await db.update(proposals).set(updates as Record<string, never>).where(eq(proposals.id, id));
       }

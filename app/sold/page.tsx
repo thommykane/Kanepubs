@@ -49,6 +49,8 @@ export default function SoldPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [users, setUsers] = useState<{ id: string; username: string }[]>([]);
   const [editModal, setEditModal] = useState<Row | null>(null);
+  const [editContactId, setEditContactId] = useState("");
+  const [companyContacts, setCompanyContacts] = useState<{ id: string; firstName: string | null; lastName: string | null }[]>([]);
   const [editSalesAgent, setEditSalesAgent] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editIssues, setEditIssues] = useState<{ issue: string; year: string; specialFeatures: string }[]>([{ issue: "Spring", year: "2026", specialFeatures: "None" }]);
@@ -82,10 +84,14 @@ export default function SoldPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const openEditModal = (row: Row) => {
-    fetchUsers(); // refetch so dropdown includes newly created users (e.g. joecosta)
+  const openEditModal = async (row: Row) => {
+    fetchUsers();
     setEditModal(row);
+    setEditContactId(row.proposal.contactId);
     setEditSalesAgent(row.proposal.salesAgent);
+    const res = await fetch(`/api/contacts?businessId=${encodeURIComponent(row.proposal.companyDisplayId)}`);
+    const contactsList = await res.json();
+    setCompanyContacts(Array.isArray(contactsList) ? contactsList.map((c: { id: string; firstName?: string | null; lastName?: string | null }) => ({ id: c.id, firstName: c.firstName ?? null, lastName: c.lastName ?? null })) : []);
     setEditAmount(row.proposal.amount ?? "");
     setEditIssues(row.proposal.issues && row.proposal.issues.length > 0 ? row.proposal.issues.map((i) => ({ ...i })) : [{ issue: "Spring", year: "2026", specialFeatures: "None" }]);
     setEditGeo(row.proposal.geo ?? "");
@@ -134,6 +140,7 @@ export default function SoldPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           adminEdit: true,
+          contactId: editContactId || undefined,
           salesAgent: editSalesAgent,
           amount: editAmount || null,
           issues: issuesVal,
@@ -460,6 +467,35 @@ export default function SoldPage() {
           >
             <h3 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>Edit Sale</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
+              <label>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Contact</span>
+                <select
+                  value={editContactId}
+                  onChange={(e) => setEditContactId(e.target.value)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.5rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    marginTop: "4px",
+                  }}
+                >
+                  {companyContacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {[c.firstName, c.lastName].filter(Boolean).join(" ") || c.id}
+                    </option>
+                  ))}
+                  {editContactId && !companyContacts.some((c) => c.id === editContactId) && (
+                    <option value={editContactId}>
+                      {editModal?.contact ? [editModal.contact.firstName, editModal.contact.lastName].filter(Boolean).join(" ") || editContactId : editContactId}
+                    </option>
+                  )}
+                  {companyContacts.length === 0 && !editContactId && <option value="">No contacts for this company</option>}
+                </select>
+              </label>
               <label>
                 <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Sales Agent</span>
                 <select
