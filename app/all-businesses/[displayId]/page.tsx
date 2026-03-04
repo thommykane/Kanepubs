@@ -186,6 +186,21 @@ export default async function BusinessDetailPage({ params }: Props) {
               >
                 {agencyLink.agencyName ?? agencyLink.agencyDisplayId ?? "—"}
               </Link>
+              {" "}
+              <Link
+                href={`/new-agency?linkCompany=${encodeURIComponent(displayId)}&linkType=business&fromAgency=${encodeURIComponent(agencyLink.agencyDisplayId ?? "")}`}
+                style={{
+                  fontSize: "0.8rem",
+                  padding: "0.2rem 0.5rem",
+                  background: "var(--glass)",
+                  border: "1px solid var(--glass-border)",
+                  borderRadius: "4px",
+                  color: "var(--gold-dim)",
+                  textDecoration: "none",
+                }}
+              >
+                Update
+              </Link>
             </div>
           )}
         </div>

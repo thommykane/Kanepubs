@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const US_STATES = [
   { value: "AL", label: "Alabama" }, { value: "AK", label: "Alaska" }, { value: "AZ", label: "Arizona" },
@@ -34,6 +34,12 @@ const inputStyle: React.CSSProperties = {
 
 export default function NewAgencyPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const linkCompany = searchParams.get("linkCompany") ?? "";
+  const linkType = (searchParams.get("linkType") ?? "").toLowerCase();
+  const fromAgency = searchParams.get("fromAgency") ?? "";
+  const isUpdateFlow = Boolean(linkCompany && (linkType === "org" || linkType === "business"));
+
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [form, setForm] = useState({
@@ -47,6 +53,12 @@ export default function NewAgencyPage() {
     website: "",
   });
   const [clients, setClients] = useState<string[]>([""]);
+  const hasInitializedFromParams = useRef(false);
+  useEffect(() => {
+    if (hasInitializedFromParams.current || !linkCompany || (linkType !== "org" && linkType !== "business")) return;
+    hasInitializedFromParams.current = true;
+    setClients([linkCompany]);
+  }, [linkCompany, linkType]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -88,6 +100,21 @@ export default function NewAgencyPage() {
         setStatus("error");
         return;
       }
+      if (isUpdateFlow && fromAgency) {
+        try {
+          await fetch(`/api/agencies/${encodeURIComponent(fromAgency)}/clients`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              companyDisplayId: linkCompany,
+              companyType: linkType,
+            }),
+          });
+        } catch {
+          // Continue to redirect; unlink from old agency is best-effort
+        }
+      }
       router.push(`/all-agencies/${data.displayId}`);
     } catch {
       setErrorMessage("Network error");
@@ -98,6 +125,11 @@ export default function NewAgencyPage() {
   return (
     <main style={{ padding: "1.5rem", maxWidth: "560px" }}>
       <h1 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>New Agency</h1>
+      {isUpdateFlow && (
+        <p style={{ color: "var(--gold-dim)", fontSize: "0.875rem", marginBottom: "1rem", padding: "0.75rem", background: "var(--glass)", borderRadius: "6px", border: "1px solid var(--glass-border)" }}>
+          Linking <strong>{linkCompany}</strong> to this agency. After you create it, they will be removed from the previous agency and appear under this one.
+        </p>
+      )}
       <form onSubmit={handleSubmit} autoComplete="off" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           <span style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>Agency Name *</span>
