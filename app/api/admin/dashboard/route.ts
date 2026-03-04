@@ -56,6 +56,35 @@ export async function GET(req: NextRequest) {
     const totalSalesCount = sold.length;
     const totalSalesDollars = sold.reduce((sum, p) => sum + (p.amount != null ? Number(p.amount) : 0), 0);
 
+    function getSoldDate(p: { statusUpdatedAt: Date | null; createdAt: Date }) {
+      const d = p.statusUpdatedAt ?? p.createdAt;
+      return d ? new Date(d) : null;
+    }
+
+    const YEAR_LIST = [2025, 2024, 2023, 2022, 2021] as const;
+    const dealsByYear: Record<number, { count: number; dollars: number }> = {};
+    for (const y of YEAR_LIST) dealsByYear[y] = { count: 0, dollars: 0 };
+    for (const p of sold) {
+      const d = getSoldDate(p);
+      if (!d) continue;
+      const y = d.getFullYear();
+      if (y in dealsByYear) {
+        dealsByYear[y].count += 1;
+        dealsByYear[y].dollars += p.amount != null ? Number(p.amount) : 0;
+      }
+    }
+
+    const CURRENT_YEAR = 2026;
+    const proposals2026 = allProposals.filter((p) => {
+      const d = p.createdAt ? new Date(p.createdAt) : null;
+      return d && d.getFullYear() === CURRENT_YEAR;
+    });
+    const ioOrSold2026 = proposals2026.filter((p) => p.status === "io" || p.status === "sold");
+    const sold2026 = proposals2026.filter((p) => p.status === "sold");
+    const totalProposals2026 = proposals2026.length;
+    const pctProposalsToIo2026 = totalProposals2026 > 0 ? (ioOrSold2026.length / totalProposals2026) * 100 : 0;
+    const pctIoToSold2026 = ioOrSold2026.length > 0 ? (sold2026.length / ioOrSold2026.length) * 100 : 0;
+
     const totalProposals = allProposals.length;
     const ioOrSold = allProposals.filter((p) => p.status === "io" || p.status === "sold");
     const pctProposalsToIo = totalProposals > 0 ? (ioOrSold.length / totalProposals) * 100 : 0;
@@ -103,10 +132,24 @@ export async function GET(req: NextRequest) {
 
     const salesFromOrgs = sold.filter((p) => p.companyType === "org");
     const salesFromBiz = sold.filter((p) => p.companyType === "business");
+    const salesFromAgency = sold.filter((p) => p.companyType === "agency");
     const orgSalesCount = salesFromOrgs.length;
     const orgSalesDollars = salesFromOrgs.reduce((s, p) => s + (p.amount != null ? Number(p.amount) : 0), 0);
     const bizSalesCount = salesFromBiz.length;
     const bizSalesDollars = salesFromBiz.reduce((s, p) => s + (p.amount != null ? Number(p.amount) : 0), 0);
+    const agencySalesCount = salesFromAgency.length;
+    const agencySalesDollars = salesFromAgency.reduce((s, p) => s + (p.amount != null ? Number(p.amount) : 0), 0);
+
+    const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const dealsByMonth: { month: string; count: number; pctOfAll: number }[] = [];
+    for (let m = 0; m < 12; m++) {
+      const count = sold.filter((p) => {
+        const d = getSoldDate(p);
+        return d && d.getMonth() === m;
+      }).length;
+      const pctOfAll = totalSalesCount > 0 ? (count / totalSalesCount) * 100 : 0;
+      dealsByMonth.push({ month: MONTH_NAMES[m], count, pctOfAll });
+    }
 
     const orgRows = await db.select({ displayId: organizations.displayId, organizationType: organizations.organizationType }).from(organizations);
     const bizRows = await db.select({ displayId: businesses.displayId, businessType: businesses.businessType }).from(businesses);
@@ -148,6 +191,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       totalSalesCount,
       totalSalesDollars,
+      dealsByYear,
+      pctProposalsToIo2026,
+      pctIoToSold2026,
       totalProposals,
       pctProposalsToIo,
       pctIoToSold,
@@ -156,6 +202,8 @@ export async function GET(req: NextRequest) {
       orgSalesDollars,
       bizSalesCount,
       bizSalesDollars,
+      agencySalesCount,
+      agencySalesDollars,
       salesByOrgType,
       salesByBizType,
       organizationTypes: ORGANIZATION_TYPES,
@@ -163,6 +211,7 @@ export async function GET(req: NextRequest) {
       stateList,
       salesByState,
       totalSalesForPct: totalSalesDollars,
+      dealsByMonth,
     });
   } catch (err) {
     console.error("[api/admin/dashboard]", err);

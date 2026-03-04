@@ -31,6 +31,9 @@ type AgentRow = {
 type DashboardData = {
   totalSalesCount: number;
   totalSalesDollars: number;
+  dealsByYear: Record<number, { count: number; dollars: number }>;
+  pctProposalsToIo2026: number;
+  pctIoToSold2026: number;
   totalProposals: number;
   pctProposalsToIo: number;
   pctIoToSold: number;
@@ -39,6 +42,8 @@ type DashboardData = {
   orgSalesDollars: number;
   bizSalesCount: number;
   bizSalesDollars: number;
+  agencySalesCount: number;
+  agencySalesDollars: number;
   salesByOrgType: Record<string, { count: number; dollars: number }>;
   salesByBizType: Record<string, { count: number; dollars: number }>;
   organizationTypes: string[];
@@ -46,6 +51,7 @@ type DashboardData = {
   stateList: string[];
   salesByState: Record<string, { count: number; dollars: number }>;
   totalSalesForPct: number;
+  dealsByMonth: { month: string; count: number; pctOfAll: number }[];
 };
 
 const sectionStyle: React.CSSProperties = {
@@ -123,11 +129,19 @@ export default function AdminDashboardPage() {
 
       <div style={sectionStyle}>
         <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", marginBottom: "0.75rem" }}>Totals</h2>
-        <p style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}><strong>Total Sales (#):</strong> {fmtNum(data.totalSalesCount)}</p>
-        <p style={{ color: "var(--gold-bright)", marginBottom: "0.5rem" }}><strong>Total Sales ($):</strong> {fmtDollars(data.totalSalesDollars)}</p>
-        <p style={{ color: "var(--gold-dim)", fontSize: "0.9rem" }}><strong>Conversions</strong></p>
-        <p style={{ color: "var(--gold-bright)" }}>Total % of proposals converted to sent I/O&apos;s: {fmtPct(data.pctProposalsToIo)}</p>
-        <p style={{ color: "var(--gold-bright)" }}>Total % of I/O&apos;s converted to SOLD: {fmtPct(data.pctIoToSold)}</p>
+        <p style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}><strong>Total Deals of All Time:</strong> {fmtNum(data.totalSalesCount)}</p>
+        <p style={{ color: "var(--gold-bright)", marginBottom: "0.5rem" }}><strong>Total Sales Revenue:</strong> {fmtDollars(data.totalSalesDollars)}</p>
+        {([2025, 2024, 2023, 2022, 2021] as const).map((y) => {
+          const row = data.dealsByYear?.[y] ?? { count: 0, dollars: 0 };
+          return (
+            <p key={y} style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}>
+              <strong>Total Deals {y}:</strong> {fmtNum(row.count)} &nbsp; <strong>Total Revenue {y}:</strong> {fmtDollars(row.dollars)}
+            </p>
+          );
+        })}
+        <p style={{ color: "var(--gold-dim)", fontSize: "0.9rem", marginTop: "0.75rem" }}><strong>Conversions (2026 only)</strong></p>
+        <p style={{ color: "var(--gold-bright)" }}>Total % of proposals converted to sent I/O&apos;s: {fmtPct(data.pctProposalsToIo2026 ?? 0)}</p>
+        <p style={{ color: "var(--gold-bright)" }}>Total % of I/O&apos;s converted to SOLD: {fmtPct(data.pctIoToSold2026 ?? 0)}</p>
       </div>
 
       <div style={sectionStyle}>
@@ -174,6 +188,34 @@ export default function AdminDashboardPage() {
       <div style={sectionStyle}>
         <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", marginBottom: "0.75rem" }}>Sales from Businesses</h2>
         <p style={{ color: "var(--gold-bright)" }}>#: {fmtNum(data.bizSalesCount)} &nbsp; $: {fmtDollars(data.bizSalesDollars)}</p>
+      </div>
+
+      <div style={sectionStyle}>
+        <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", marginBottom: "0.75rem" }}>Sales from Agencies</h2>
+        <p style={{ color: "var(--gold-bright)" }}>#: {fmtNum(data.agencySalesCount ?? 0)} &nbsp; $: {fmtDollars(data.agencySalesDollars ?? 0)}</p>
+      </div>
+
+      <div style={sectionStyle}>
+        <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", marginBottom: "0.75rem" }}>Deals by Month (all time)</h2>
+        <p style={{ color: "var(--gold-dim)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>Total deals closed in each month across all years, and % of all deals.</p>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Month</th>
+              <th style={thStyle}>Total Deals</th>
+              <th style={thStyle}>% of All Deals</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(data.dealsByMonth ?? []).map((row) => (
+              <tr key={row.month}>
+                <td style={tdStyle}>{row.month}</td>
+                <td style={tdStyle}>{fmtNum(row.count)}</td>
+                <td style={tdStyle}>{fmtPct(row.pctOfAll)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div style={sectionStyle}>
