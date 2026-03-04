@@ -75,6 +75,13 @@ export async function GET(req: NextRequest) {
     }
 
     const CURRENT_YEAR = 2026;
+    const soldYTD = sold.filter((p) => {
+      const d = getSoldDate(p);
+      return d && d.getFullYear() === CURRENT_YEAR;
+    });
+    const totalDealsYTD = soldYTD.length;
+    const totalRevenueYTD = soldYTD.reduce((sum, p) => sum + (p.amount != null ? Number(p.amount) : 0), 0);
+
     const proposals2026 = allProposals.filter((p) => {
       const d = p.createdAt ? new Date(p.createdAt) : null;
       return d && d.getFullYear() === CURRENT_YEAR;
@@ -191,6 +198,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       totalSalesCount,
       totalSalesDollars,
+      totalDealsYTD,
+      totalRevenueYTD,
       dealsByYear,
       pctProposalsToIo2026,
       pctIoToSold2026,

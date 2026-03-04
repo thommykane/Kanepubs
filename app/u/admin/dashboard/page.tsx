@@ -31,6 +31,8 @@ type AgentRow = {
 type DashboardData = {
   totalSalesCount: number;
   totalSalesDollars: number;
+  totalDealsYTD: number;
+  totalRevenueYTD: number;
   dealsByYear: Record<number, { count: number; dollars: number }>;
   pctProposalsToIo2026: number;
   pctIoToSold2026: number;
@@ -130,7 +132,9 @@ export default function AdminDashboardPage() {
       <div style={sectionStyle}>
         <h2 style={{ color: "var(--gold-bright)", fontSize: "1rem", marginBottom: "0.75rem" }}>Totals</h2>
         <p style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}><strong>Total Deals of All Time:</strong> {fmtNum(data.totalSalesCount)}</p>
-        <p style={{ color: "var(--gold-bright)", marginBottom: "0.5rem" }}><strong>Total Sales Revenue:</strong> {fmtDollars(data.totalSalesDollars)}</p>
+        <p style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}><strong>Total Sales Revenue:</strong> {fmtDollars(data.totalSalesDollars)}</p>
+        <p style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}><strong>Total Deals YTD:</strong> {fmtNum(data.totalDealsYTD ?? 0)}</p>
+        <p style={{ color: "var(--gold-bright)", marginBottom: "0.5rem" }}><strong>Total Revenue YTD:</strong> {fmtDollars(data.totalRevenueYTD ?? 0)}</p>
         {([2025, 2024, 2023, 2022, 2021] as const).map((y) => {
           const row = data.dealsByYear?.[y] ?? { count: 0, dollars: 0 };
           return (
