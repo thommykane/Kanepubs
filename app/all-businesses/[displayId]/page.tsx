@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { businesses, contacts } from "@/lib/db/schema";
+import { businesses, contacts, proposals } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
 import CompanyProfileContent from "@/components/CompanyProfileContent";
 
@@ -26,6 +26,22 @@ export default async function BusinessDetailPage({ params }: Props) {
       </div>
     );
   }
+
+  const [soldStats] = await db
+    .select({
+      transactions: sql<number>`count(*)::int`,
+      moneySpent: sql<string>`coalesce(sum(${proposals.amount}), 0)::text`,
+    })
+    .from(proposals)
+    .where(
+      and(
+        eq(proposals.status, "sold"),
+        eq(proposals.companyType, "business"),
+        eq(proposals.companyDisplayId, displayId)
+      )
+    );
+  const transactions = soldStats?.transactions ?? 0;
+  const moneySpentRaw = soldStats?.moneySpent ?? "0";
 
   const contactList = await db
     .select()
@@ -146,11 +162,11 @@ export default async function BusinessDetailPage({ params }: Props) {
           </div>
           <div style={infoStyle}>
             <span style={labelStyle}>Transactions</span>
-            <span>{business.transactions ?? 0}</span>
+            <span>{transactions}</span>
           </div>
           <div style={infoStyle}>
             <span style={labelStyle}>Money Spent</span>
-            <span style={{ color: "#39ff14", fontWeight: 700 }}>{formatMoney(business.moneySpent)}</span>
+            <span style={{ color: "#39ff14", fontWeight: 700 }}>{formatMoney(moneySpentRaw)}</span>
           </div>
         </div>
       </div>
