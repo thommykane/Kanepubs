@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { users, sessions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
