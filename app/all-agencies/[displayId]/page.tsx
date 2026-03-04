@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { agencies, agencyClients, contacts, organizations, businesses, proposals } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
 import AgencyProfileContent from "@/components/AgencyProfileContent";
+import AgencyAssignedToEdit from "@/components/AgencyAssignedToEdit";
 
 type Props = { params: Promise<{ displayId: string }> };
 
@@ -214,7 +215,7 @@ export default async function AgencyDetailPage({ params }: Props) {
           </div>
           <div style={infoStyle}>
             <span style={labelStyle}>Assigned to</span>
-            <span>{agency.assignedTo ?? "—"}</span>
+            <AgencyAssignedToEdit agencyDisplayId={displayId} initialAssignedTo={agency.assignedTo ?? null} />
           </div>
           <div style={infoStyle}>
             <span style={labelStyle}>Transactions</span>

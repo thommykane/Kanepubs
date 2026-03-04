@@ -30,6 +30,7 @@ const LIVE_ACTIVITY_LINKS_AGENT = [
 const MY_ACCOUNT_LINKS = [
   { href: "/my-organizations", label: "My Organizations" },
   { href: "/my-businesses", label: "My Businesses" },
+  { href: "/my-agencies", label: "My Agencies" },
   { href: "/my-contacts", label: "My Contacts" },
   { href: "/my-clients", label: "My Clients" },
 ];

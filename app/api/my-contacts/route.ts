@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { contacts, businesses, organizations, sessions, users } from "@/lib/db/schema";
+import { contacts, businesses, organizations, agencies, agencyClients, sessions, users } from "@/lib/db/schema";
 
 async function getCurrentUsername(req: NextRequest): Promise<string | null> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -25,12 +25,28 @@ export async function GET(req: NextRequest) {
       .select({ displayId: businesses.displayId })
       .from(businesses)
       .where(eq(businesses.assignedTo, username));
+    const myAgencies = await db
+      .select({ id: agencies.id, displayId: agencies.displayId })
+      .from(agencies)
+      .where(eq(agencies.assignedTo, username));
+    const myAgencyDisplayIds = myAgencies.map((a) => a.displayId).filter(Boolean) as string[];
+    const clientDisplayIds: string[] = [];
+    if (myAgencies.length > 0) {
+      const clients = await db
+        .select({ companyDisplayId: agencyClients.companyDisplayId })
+        .from(agencyClients)
+        .where(inArray(agencyClients.agencyId, myAgencies.map((a) => a.id)));
+      clientDisplayIds.push(...clients.map((c) => c.companyDisplayId).filter(Boolean));
+    }
 
     const displayIds = [
       ...myOrgIds.map((r) => r.displayId).filter(Boolean),
       ...myBizIds.map((r) => r.displayId).filter(Boolean),
+      ...myAgencyDisplayIds,
+      ...clientDisplayIds,
     ] as string[];
-    if (displayIds.length === 0) {
+    const uniqueDisplayIds = [...new Set(displayIds)];
+    if (uniqueDisplayIds.length === 0) {
       return NextResponse.json([]);
     }
 
@@ -54,7 +70,7 @@ export async function GET(req: NextRequest) {
       .from(contacts)
       .leftJoin(businesses, eq(contacts.businessId, businesses.displayId))
       .leftJoin(organizations, eq(contacts.businessId, organizations.displayId))
-      .where(inArray(contacts.businessId, displayIds))
+      .where(inArray(contacts.businessId, uniqueDisplayIds))
       .orderBy(desc(contacts.createdAt));
 
     return NextResponse.json(list);

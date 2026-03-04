@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { businesses, contacts, proposals } from "@/lib/db/schema";
+import { businesses, contacts, proposals, agencyClients, agencies } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
 import CompanyProfileContent from "@/components/CompanyProfileContent";
 
@@ -42,6 +42,15 @@ export default async function BusinessDetailPage({ params }: Props) {
     );
   const transactions = soldStats?.transactions ?? 0;
   const moneySpentRaw = soldStats?.moneySpent ?? "0";
+
+  const [agencyLink] = await db
+    .select({ agencyDisplayId: agencies.displayId, agencyName: agencies.agencyName })
+    .from(agencyClients)
+    .innerJoin(agencies, eq(agencyClients.agencyId, agencies.id))
+    .where(
+      and(eq(agencyClients.companyType, "business"), eq(agencyClients.companyDisplayId, displayId))
+    )
+    .limit(1);
 
   const contactList = await db
     .select()
@@ -168,6 +177,17 @@ export default async function BusinessDetailPage({ params }: Props) {
             <span style={labelStyle}>Money Spent</span>
             <span style={{ color: "#39ff14", fontWeight: 700 }}>{formatMoney(moneySpentRaw)}</span>
           </div>
+          {agencyLink && (
+            <div style={infoStyle}>
+              <span style={labelStyle}>Agency</span>
+              <Link
+                href={`/all-agencies/${agencyLink.agencyDisplayId ?? ""}`}
+                style={{ color: "var(--gold-bright)", textDecoration: "underline" }}
+              >
+                {agencyLink.agencyName ?? agencyLink.agencyDisplayId ?? "—"}
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </CompanyProfileContent>

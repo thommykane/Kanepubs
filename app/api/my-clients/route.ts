@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, desc, or, and, inArray, isNull } from "drizzle-orm";
+import { eq, desc, or, and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   proposals,
   businesses,
   organizations,
+  agencies,
   activities,
   contacts,
   sessions,
@@ -45,10 +46,13 @@ export async function GET(req: NextRequest) {
         proposal: proposals,
         businessName: businesses.businessName,
         organizationName: organizations.organizationName,
+        agencyName: agencies.agencyName,
         moneySpentBiz: businesses.moneySpent,
         moneySpentOrg: organizations.moneySpent,
+        moneySpentAgency: agencies.moneySpent,
         transactionsBiz: businesses.transactions,
         transactionsOrg: organizations.transactions,
+        transactionsAgency: agencies.transactions,
       })
       .from(proposals)
       .leftJoin(
@@ -59,13 +63,18 @@ export async function GET(req: NextRequest) {
         organizations,
         and(eq(proposals.companyType, "org"), eq(proposals.companyDisplayId, organizations.displayId))
       )
+      .leftJoin(
+        agencies,
+        and(eq(proposals.companyType, "agency"), eq(proposals.companyDisplayId, agencies.displayId))
+      )
       .where(
         and(
-            eq(proposals.status, "sold"),
-            or(
-              eq(proposals.assignedTo, current.username),
-              and(isNull(proposals.assignedTo), eq(proposals.salesAgent, current.username))
-            )
+          eq(proposals.status, "sold"),
+          or(
+            and(eq(proposals.companyType, "business"), eq(businesses.assignedTo, current.username)),
+            and(eq(proposals.companyType, "org"), eq(organizations.assignedTo, current.username)),
+            and(eq(proposals.companyType, "agency"), eq(agencies.assignedTo, current.username))
+          )
         )
       )
       .orderBy(desc(proposals.statusUpdatedAt));
@@ -118,19 +127,21 @@ export async function GET(req: NextRequest) {
       const companyName =
         row.proposal.companyType === "business"
           ? row.businessName ?? row.proposal.companyDisplayId
-          : row.organizationName ?? row.proposal.companyDisplayId;
+          : row.proposal.companyType === "org"
+            ? row.organizationName ?? row.proposal.companyDisplayId
+            : row.agencyName ?? row.proposal.companyDisplayId;
       const moneySpent =
         row.proposal.companyType === "business"
-          ? row.moneySpentBiz != null
-            ? Number(row.moneySpentBiz)
-            : 0
-          : row.moneySpentOrg != null
-            ? Number(row.moneySpentOrg)
-            : 0;
+          ? row.moneySpentBiz != null ? Number(row.moneySpentBiz) : 0
+          : row.proposal.companyType === "org"
+            ? row.moneySpentOrg != null ? Number(row.moneySpentOrg) : 0
+            : row.moneySpentAgency != null ? Number(row.moneySpentAgency) : 0;
       const transactions =
         row.proposal.companyType === "business"
           ? row.transactionsBiz ?? 0
-          : row.transactionsOrg ?? 0;
+          : row.proposal.companyType === "org"
+            ? row.transactionsOrg ?? 0
+            : row.transactionsAgency ?? 0;
 
       return {
         proposalId: row.proposal.id,

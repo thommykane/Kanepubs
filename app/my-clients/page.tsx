@@ -121,7 +121,9 @@ export default function MyClientsPage() {
   const companyHref = (row: ClientRow) =>
     row.companyType === "org"
       ? `/all-organizations/${row.companyDisplayId}`
-      : `/all-businesses/${row.companyDisplayId}`;
+      : row.companyType === "agency"
+        ? `/all-agencies/${row.companyDisplayId}`
+        : `/all-businesses/${row.companyDisplayId}`;
 
   const inputStyle: React.CSSProperties = {
     padding: "0.4rem 0.6rem",
@@ -268,7 +270,7 @@ export default function MyClientsPage() {
                     </button>
                   </th>
                 )}
-                <th style={thStyle}>Organization / Business</th>
+                <th style={thStyle}>Organization / Business / Agency</th>
                 <th style={thStyle}>Money spent</th>
                 <th style={thStyle}>Transactions</th>
                 <th style={thStyle}>Date last sold</th>
