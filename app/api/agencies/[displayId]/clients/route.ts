@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients } from "@/lib/db/schema";
+import { agencies, agencyClients, organizations, businesses } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 
 /** POST: Add a client (organization or business) to an agency. Body: { companyDisplayId: string, companyType: "org" | "business" }. */
@@ -41,6 +41,27 @@ export async function POST(
       .limit(1);
     if (existing) {
       return NextResponse.json({ error: "This client is already linked to this agency" }, { status: 400 });
+    }
+
+    // Ensure the organization or business exists in the database
+    if (companyType === "org") {
+      const [org] = await db
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.displayId, companyDisplayId))
+        .limit(1);
+      if (!org) {
+        return NextResponse.json({ error: "Organization not found with that ID" }, { status: 404 });
+      }
+    } else {
+      const [biz] = await db
+        .select({ id: businesses.id })
+        .from(businesses)
+        .where(eq(businesses.displayId, companyDisplayId))
+        .limit(1);
+      if (!biz) {
+        return NextResponse.json({ error: "Business not found with that ID" }, { status: 404 });
+      }
     }
 
     await db.insert(agencyClients).values({
