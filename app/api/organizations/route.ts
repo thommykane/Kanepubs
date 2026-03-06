@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, and, ilike, isNull, or, lt } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { businesses, organizations, sessions, users } from "@/lib/db/schema";
+import { desc, and, ilike, isNull, or, lt, notInArray } from "drizzle-orm";
 import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { businesses, organizations, sessions, users, proposals } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 import { getTimezoneFromAddress } from "@/lib/timezone-from-address";
 import { getNextDisplayId, getMaxDisplayNumber } from "@/lib/next-display-id";
@@ -16,6 +16,8 @@ async function getCurrentUsername(req: NextRequest): Promise<string> {
   const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
   return user?.username ?? "Admin";
 }
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,9 +41,20 @@ export async function GET(req: NextRequest) {
     const typeQ = searchParams.get("type")?.trim();
     const tagsQ = searchParams.get("tags")?.trim();
 
-    // Only show leads: organizations with 0 transactions (never sold)
-    const leadsOnly = or(lt(organizations.transactions, 1), isNull(organizations.transactions));
-    const conditions = [leadsOnly];
+    // Exclude orgs that have any sold proposal (source of truth), and those with transactions >= 1
+    const soldOrgIds = await db
+      .select({ companyDisplayId: proposals.companyDisplayId })
+      .from(proposals)
+      .where(and(eq(proposals.status, "sold"), eq(proposals.companyType, "org")));
+    const soldDisplayIds = soldOrgIds.map((r) => r.companyDisplayId).filter(Boolean);
+    const leadsOnly =
+      soldDisplayIds.length > 0
+        ? notInArray(organizations.displayId, soldDisplayIds)
+        : undefined;
+
+    const conditions = [];
+    if (leadsOnly) conditions.push(leadsOnly);
+    conditions.push(or(lt(organizations.transactions, 1), isNull(organizations.transactions)));
     if (nameQ) conditions.push(ilike(organizations.organizationName, `%${nameQ}%`));
     if (typeQ) conditions.push(ilike(organizations.organizationType, `%${typeQ}%`));
     if (tagsQ) conditions.push(ilike(organizations.tags, `%${tagsQ}%`));
