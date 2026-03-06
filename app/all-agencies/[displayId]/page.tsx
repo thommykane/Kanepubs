@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, contacts, organizations, businesses, proposals } from "@/lib/db/schema";
+import { agencies, agencyClients, contacts, organizations, businesses, proposals, activities } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
 import AgencyProfileContent from "@/components/AgencyProfileContent";
 import AgencyAssignedToEdit from "@/components/AgencyAssignedToEdit";
@@ -111,8 +111,30 @@ export default async function AgencyDetailPage({ params }: Props) {
     })
     .from(proposals)
     .where(and(eq(proposals.status, "sold"), or(...soldCompanyFilters)));
-  const transactions = soldStats?.transactions ?? 0;
-  const moneySpentRaw = soldStats?.moneySpent ?? "0";
+
+  // Legacy safety net: some older agency SOLD entries may exist in activity history
+  // without corresponding proposal rows.
+  const soldAgencyActivities = await db
+    .select({ proposalData: activities.proposalData })
+    .from(activities)
+    .where(
+      and(
+        eq(activities.companyType, "agency"),
+        eq(activities.companyDisplayId, displayId),
+        eq(activities.actionType, "sold")
+      )
+    );
+  const activityTransactions = soldAgencyActivities.length;
+  const activityMoney = soldAgencyActivities.reduce((sum, row) => {
+    const pd = row.proposalData as { amount?: string | number } | null;
+    const amount = pd?.amount != null ? Number(pd.amount) : 0;
+    return sum + (Number.isFinite(amount) ? amount : 0);
+  }, 0);
+
+  const proposalTransactions = soldStats?.transactions ?? 0;
+  const proposalMoney = soldStats?.moneySpent != null ? Number(soldStats.moneySpent) : 0;
+  const transactions = Math.max(proposalTransactions, activityTransactions);
+  const moneySpentRaw = String(Math.max(proposalMoney, activityMoney));
 
   const contactList = await db
     .select()
