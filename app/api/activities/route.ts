@@ -230,24 +230,67 @@ export async function POST(req: NextRequest) {
       if (isNaN(backdatedAt.getTime())) {
         return NextResponse.json({ error: "Invalid backdatedDate" }, { status: 400 });
       }
-      const id = uuid();
+      const activityId = uuid();
+      const proposalId = uuid();
       const notesTrimmed =
         notes != null && String(notes).trim() !== ""
           ? String(notes).trim().slice(0, 50)
           : null;
+      const pd =
+        proposalData && typeof proposalData === "object"
+          ? (proposalData as {
+              amount?: string;
+              issues?: { issue: string; year: string; specialFeatures: string }[];
+              geo?: string;
+              impressions?: number;
+            })
+          : null;
+      const issuesVal =
+        pd && Array.isArray(pd.issues)
+          ? (pd.issues as { issue: string; year: string; specialFeatures: string }[])
+          : null;
+      const amountVal = pd?.amount != null ? String(pd.amount).trim() : null;
+      const geoVal = pd?.geo != null ? String(pd.geo).trim() : null;
+      const impressionsVal =
+        pd?.impressions != null && Number.isInteger(Number(pd.impressions))
+          ? Number(pd.impressions)
+          : null;
+      const companyTypeNorm = String(companyType).trim().toLowerCase();
+      const companyDisplayIdNorm = String(companyDisplayId).trim();
+      const salesAgent = String(bodySalesAgent).trim();
+
       await db.insert(activities).values({
-        id,
-        companyType: String(companyType).trim(),
-        companyDisplayId: String(companyDisplayId).trim(),
+        id: activityId,
+        companyType: companyTypeNorm,
+        companyDisplayId: companyDisplayIdNorm,
         contactId: contactIdVal,
-        username: String(bodySalesAgent).trim(),
+        username: salesAgent,
         actionType: "sent_proposal",
         notes: notesTrimmed,
         meetingAt: null,
         proposalData: proposalData ?? null,
         createdAt: backdatedAt,
       });
-      return NextResponse.json({ success: true, id });
+
+      if (contactIdVal) {
+        await db.insert(proposals).values({
+          id: proposalId,
+          companyType: companyTypeNorm,
+          companyDisplayId: companyDisplayIdNorm,
+          contactId: contactIdVal,
+          salesAgent,
+          amount: amountVal,
+          issues: issuesVal,
+          geo: geoVal,
+          impressions: impressionsVal,
+          notes: notesTrimmed,
+          status: "proposal",
+          createdAt: backdatedAt,
+          assignedTo: salesAgent,
+        });
+      }
+
+      return NextResponse.json({ success: true, id: activityId, proposalId });
     }
 
     if (actionTypeTrimmed === "backdated_sold") {

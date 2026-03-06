@@ -196,6 +196,79 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Fallback for legacy data: include orgs/businesses with tx/money
+    // even if sold proposals table is incomplete.
+    const existingCompanyKeys = new Set(list.map((r) => `${r.companyType}:${r.companyDisplayId}`));
+    const orgRows = await db
+      .select({
+        displayId: organizations.displayId,
+        organizationName: organizations.organizationName,
+        transactions: organizations.transactions,
+        moneySpent: organizations.moneySpent,
+        assignedTo: organizations.assignedTo,
+      })
+      .from(organizations);
+    for (const org of orgRows) {
+      if (!org.displayId) continue;
+      const tx = org.transactions ?? 0;
+      const money = org.moneySpent != null ? Number(org.moneySpent) : 0;
+      if (tx < 1 && money <= 0) continue;
+      const key = `org:${org.displayId}`;
+      if (existingCompanyKeys.has(key)) continue;
+      const last = lastActivityByCompany.get(key);
+      const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+      list.push({
+        proposalId: `org:${org.displayId}`,
+        companyType: "org",
+        companyDisplayId: org.displayId,
+        companyName: org.organizationName ?? org.displayId,
+        moneySpent: money,
+        transactions: tx,
+        dateLastSold: last?.createdAt ?? null,
+        lastActivityAt: last?.createdAt ?? null,
+        lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+        lastContactFirstName: contact?.firstName ?? null,
+        lastContactLastName: contact?.lastName ?? null,
+        assignedTo: org.assignedTo ?? "",
+      });
+      existingCompanyKeys.add(key);
+    }
+
+    const bizRows = await db
+      .select({
+        displayId: businesses.displayId,
+        businessName: businesses.businessName,
+        transactions: businesses.transactions,
+        moneySpent: businesses.moneySpent,
+        assignedTo: businesses.assignedTo,
+      })
+      .from(businesses);
+    for (const biz of bizRows) {
+      if (!biz.displayId) continue;
+      const tx = biz.transactions ?? 0;
+      const money = biz.moneySpent != null ? Number(biz.moneySpent) : 0;
+      if (tx < 1 && money <= 0) continue;
+      const key = `business:${biz.displayId}`;
+      if (existingCompanyKeys.has(key)) continue;
+      const last = lastActivityByCompany.get(key);
+      const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+      list.push({
+        proposalId: `business:${biz.displayId}`,
+        companyType: "business",
+        companyDisplayId: biz.displayId,
+        companyName: biz.businessName ?? biz.displayId,
+        moneySpent: money,
+        transactions: tx,
+        dateLastSold: last?.createdAt ?? null,
+        lastActivityAt: last?.createdAt ?? null,
+        lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+        lastContactFirstName: contact?.firstName ?? null,
+        lastContactLastName: contact?.lastName ?? null,
+        assignedTo: biz.assignedTo ?? "",
+      });
+      existingCompanyKeys.add(key);
+    }
+
     // Normalize agency totals to match agency profile logic:
     // include agency direct SOLD + linked org/business SOLD,
     // with legacy sold activity fallback for older data.
@@ -284,7 +357,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-      list.filter((row) => row.companyType !== "agency" || row.transactions >= 1)
+      list.filter((row) => row.transactions >= 1 || row.moneySpent > 0)
     );
   } catch (err) {
     console.error("[api/all-clients GET]", err);

@@ -42,7 +42,7 @@ export default function MyAgenciesPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchAgencies = useCallback(async () => {
-    const res = await fetch("/api/my-agencies", { credentials: "include" });
+    const res = await fetch("/api/my-agencies", { credentials: "include", cache: "no-store" });
     if (res.status === 401) {
       setList([]);
       return;

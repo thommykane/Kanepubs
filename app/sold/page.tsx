@@ -73,7 +73,7 @@ export default function SoldPage() {
   }, []);
 
   const fetchUsers = useCallback(async () => {
-    const res = await fetch("/api/users");
+    const res = await fetch("/api/users", { cache: "no-store" });
     const d = await res.json();
     setUsers(Array.isArray(d) ? d : []);
   }, []);
@@ -84,7 +84,7 @@ export default function SoldPage() {
   }, [fetchList]);
 
   useEffect(() => {
-    fetch("/api/me").then((r) => r.json()).then((d) => setIsAdmin(d?.user?.isAdmin ?? false));
+    fetch("/api/me", { cache: "no-store" }).then((r) => r.json()).then((d) => setIsAdmin(d?.user?.isAdmin ?? false));
     fetchUsers();
   }, [fetchUsers]);
 

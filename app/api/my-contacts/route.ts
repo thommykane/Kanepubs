@@ -12,6 +12,9 @@ async function getCurrentUsername(req: NextRequest): Promise<string | null> {
   return user?.username ?? null;
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const username = await getCurrentUsername(req);

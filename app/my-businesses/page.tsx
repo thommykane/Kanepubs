@@ -66,7 +66,7 @@ export default function MyBusinessesPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchBusinesses = useCallback(async () => {
-    const res = await fetch("/api/my-businesses");
+    const res = await fetch("/api/my-businesses", { cache: "no-store" });
     if (res.status === 401) {
       setList([]);
       return;
@@ -85,7 +85,7 @@ export default function MyBusinessesPage() {
   }, [fetchBusinesses]);
 
   useEffect(() => {
-    fetch("/api/users")
+    fetch("/api/users", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setUsers(Array.isArray(data) ? data : []));
   }, []);

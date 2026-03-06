@@ -32,6 +32,7 @@ type Row = {
   contact: Contact;
   businessName: string | null;
   organizationName: string | null;
+  agencyName: string | null;
 };
 
 export default function ActiveProposalsPage() {
@@ -41,13 +42,13 @@ export default function ActiveProposalsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setIsAdmin(data?.user?.isAdmin ?? false));
   }, []);
 
   const fetchList = useCallback(async () => {
-    const res = await fetch("/api/proposals?status=proposal");
+    const res = await fetch("/api/proposals?status=proposal", { cache: "no-store" });
     const data = await res.json();
     setList(Array.isArray(data) ? data : []);
   }, []);
@@ -90,11 +91,14 @@ export default function ActiveProposalsPage() {
     return issues.map((i) => `${i.issue} ${i.year}${i.specialFeatures && i.specialFeatures !== "None" ? ` (${i.specialFeatures})` : ""}`).join(", ");
   };
 
-  const companyName = (row: Row) => row.businessName ?? row.organizationName ?? row.proposal.companyDisplayId;
+  const companyName = (row: Row) =>
+    row.businessName ?? row.organizationName ?? row.agencyName ?? row.proposal.companyDisplayId;
   const companyHref = (row: Row) =>
     row.proposal.companyType === "org"
       ? `/all-organizations/${row.proposal.companyDisplayId}`
-      : `/all-businesses/${row.proposal.companyDisplayId}`;
+      : row.proposal.companyType === "agency"
+        ? `/all-agencies/${row.proposal.companyDisplayId}`
+        : `/all-businesses/${row.proposal.companyDisplayId}`;
 
   const addedAt = (row: Row) => {
     const raw = row.proposal.createdAt;

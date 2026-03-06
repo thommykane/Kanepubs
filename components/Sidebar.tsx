@@ -25,6 +25,7 @@ const LIVE_ACTIVITY_LINKS_ADMIN = [
 const LIVE_ACTIVITY_LINKS_AGENT = [
   { href: "/active-proposals", label: "Active Proposals" },
   { href: "/active-ios", label: "Active IOs" },
+  { href: "/sold", label: "Sold" },
 ];
 
 const MY_ACCOUNT_LINKS = [
@@ -66,7 +67,7 @@ export default function Sidebar() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    fetch("/api/me", { credentials: "include" })
+    fetch("/api/me", { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setIsAdmin(data?.user?.isAdmin ?? false))
       .catch(() => setIsAdmin(false));
@@ -74,7 +75,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     const handler = () => {
-      fetch("/api/me", { credentials: "include" })
+      fetch("/api/me", { credentials: "include", cache: "no-store" })
         .then((r) => r.json())
         .then((data) => setIsAdmin(data?.user?.isAdmin ?? false))
         .catch(() => setIsAdmin(false));
@@ -129,14 +130,18 @@ export default function Sidebar() {
           </Link>
         ))}
 
-        <div style={{ height: "0.75rem" }} />
+        {isAdmin === true && (
+          <>
+            <div style={{ height: "0.75rem" }} />
 
-        <div style={sectionBarStyle}>New Media</div>
-        {NEW_MEDIA_LINKS.map(({ href, label }) => (
-          <Link key={href} href={href} style={linkStyle}>
-            {label}
-          </Link>
-        ))}
+            <div style={sectionBarStyle}>New Media</div>
+            {NEW_MEDIA_LINKS.map(({ href, label }) => (
+              <Link key={href} href={href} style={linkStyle}>
+                {label}
+              </Link>
+            ))}
+          </>
+        )}
 
         <div style={{ height: "0.75rem" }} />
 

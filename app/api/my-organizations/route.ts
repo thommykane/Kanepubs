@@ -26,6 +26,9 @@ const ACTION_LABELS: Record<string, string> = {
   sold: "SOLD",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const username = await getCurrentUsername(req);
@@ -43,10 +46,13 @@ export async function GET(req: NextRequest) {
       .where(eq(organizations.assignedTo, username))
       .orderBy(desc(organizations.createdAt));
 
-    const orgsFiltered =
-      soldIds.length > 0
-        ? orgs.filter((o) => o.displayId && !soldIds.includes(o.displayId))
-        : orgs;
+    const orgsFiltered = orgs.filter((o) => {
+      const tx = o.transactions ?? 0;
+      const money = o.moneySpent != null ? Number(o.moneySpent) : 0;
+      if (tx >= 1 || money > 0) return false;
+      if (o.displayId && soldIds.includes(o.displayId)) return false;
+      return true;
+    });
 
     const allActivities = await db
       .select({ companyDisplayId: activities.companyDisplayId, companyType: activities.companyType, actionType: activities.actionType, createdAt: activities.createdAt })

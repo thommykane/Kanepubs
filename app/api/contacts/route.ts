@@ -13,8 +13,23 @@ async function getCurrentUsername(req: NextRequest): Promise<string> {
   return user?.username ?? "Admin";
 }
 
+async function requireAdmin(req: NextRequest): Promise<boolean> {
+  const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
+  if (!sessionId) return false;
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  if (!session || new Date(session.expiresAt) < new Date()) return false;
+  const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, session.userId)).limit(1);
+  return user?.isAdmin ?? false;
+}
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
+    const isAdmin = await requireAdmin(req);
+    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId")?.trim();
     if (businessId) {

@@ -37,7 +37,7 @@ export default function AllContactsPage() {
   const [purging, setPurging] = useState(false);
 
   const fetchContacts = useCallback(async () => {
-    const res = await fetch("/api/contacts");
+    const res = await fetch("/api/contacts", { cache: "no-store" });
     const data = await res.json();
     setList(Array.isArray(data) ? data : []);
   }, []);
@@ -52,7 +52,7 @@ export default function AllContactsPage() {
   }, [fetchContacts]);
 
   useEffect(() => {
-    fetch("/api/users")
+    fetch("/api/users", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setUsers(Array.isArray(data) ? data : []));
   }, []);

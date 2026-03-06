@@ -78,7 +78,7 @@ export default function AllBusinessesPage() {
     if (searchName.trim()) params.set("name", searchName.trim());
     if (searchType.trim()) params.set("type", searchType.trim());
     if (searchTags.trim()) params.set("tags", searchTags.trim());
-    const res = await fetch(`/api/businesses?${params}`);
+    const res = await fetch(`/api/businesses?${params}`, { cache: "no-store" });
     const data = await res.json();
     setList(Array.isArray(data) ? data : []);
   }, [searchName, searchType, searchTags]);
@@ -93,13 +93,13 @@ export default function AllBusinessesPage() {
   }, [fetchBusinesses]);
 
   useEffect(() => {
-    fetch("/api/users")
+    fetch("/api/users", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setUsers(Array.isArray(data) ? data : []));
   }, []);
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setIsAdmin(data?.user?.isAdmin ?? false));
   }, []);

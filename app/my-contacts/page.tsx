@@ -34,7 +34,7 @@ export default function MyContactsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchContacts = useCallback(async () => {
-    const res = await fetch("/api/my-contacts");
+    const res = await fetch("/api/my-contacts", { cache: "no-store" });
     if (res.status === 401) {
       setList([]);
       return;

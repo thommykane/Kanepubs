@@ -52,7 +52,7 @@ export default function MyOrganizationsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchOrganizations = useCallback(async () => {
-    const res = await fetch("/api/my-organizations");
+    const res = await fetch("/api/my-organizations", { cache: "no-store" });
     if (res.status === 401) {
       setList([]);
       return;
@@ -71,7 +71,7 @@ export default function MyOrganizationsPage() {
   }, [fetchOrganizations]);
 
   useEffect(() => {
-    fetch("/api/users")
+    fetch("/api/users", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setUsers(Array.isArray(data) ? data : []));
   }, []);

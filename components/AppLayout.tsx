@@ -13,7 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (pathname === "/login" || pathname === "/change-password") return;
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (data?.user?.mustChangePassword) router.replace("/change-password");

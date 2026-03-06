@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, sessions, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { agencies, agencyClients, sessions, users, proposals } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 import { getNextAgencyDisplayId } from "@/lib/next-display-id";
 
@@ -15,8 +14,23 @@ async function getCurrentUsername(req: NextRequest): Promise<string> {
   return user?.username ?? "Admin";
 }
 
-export async function GET() {
+async function requireAdmin(req: NextRequest): Promise<boolean> {
+  const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
+  if (!sessionId) return false;
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  if (!session || new Date(session.expiresAt) < new Date()) return false;
+  const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, session.userId)).limit(1);
+  return user?.isAdmin ?? false;
+}
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function GET(req: NextRequest) {
   try {
+    const isAdmin = await requireAdmin(req);
+    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const list = await db
       .select({
         id: agencies.id,
@@ -28,11 +42,48 @@ export async function GET() {
         zipCode: agencies.zipCode,
         phone: agencies.phone,
         website: agencies.website,
+        transactions: agencies.transactions,
+        moneySpent: agencies.moneySpent,
         createdAt: agencies.createdAt,
       })
       .from(agencies)
       .orderBy(desc(agencies.createdAt));
-    return NextResponse.json(list);
+
+    const links = await db
+      .select({
+        agencyId: agencyClients.agencyId,
+        companyType: agencyClients.companyType,
+        companyDisplayId: agencyClients.companyDisplayId,
+      })
+      .from(agencyClients);
+    const linksByAgency = new Map<string, { companyType: string; companyDisplayId: string }[]>();
+    for (const link of links) {
+      if (!linksByAgency.has(link.agencyId)) linksByAgency.set(link.agencyId, []);
+      linksByAgency.get(link.agencyId)!.push({
+        companyType: link.companyType,
+        companyDisplayId: link.companyDisplayId,
+      });
+    }
+
+    const soldRows = await db
+      .select({ companyType: proposals.companyType, companyDisplayId: proposals.companyDisplayId })
+      .from(proposals)
+      .where(eq(proposals.status, "sold"));
+    const soldSet = new Set(soldRows.map((r) => `${r.companyType}:${r.companyDisplayId}`));
+
+    const leadAgencies = list.filter((a) => {
+      const tx = a.transactions ?? 0;
+      const money = a.moneySpent != null ? Number(a.moneySpent) : 0;
+      if (tx >= 1 || money > 0) return false;
+      if (a.displayId && soldSet.has(`agency:${a.displayId}`)) return false;
+      const linked = linksByAgency.get(a.id) ?? [];
+      for (const c of linked) {
+        if (soldSet.has(`${c.companyType}:${c.companyDisplayId}`)) return false;
+      }
+      return true;
+    });
+
+    return NextResponse.json(leadAgencies);
   } catch (err) {
     console.error("[api/agencies GET]", err);
     return NextResponse.json([], { status: 200 });

@@ -163,7 +163,112 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json(list);
+    // Fallback for legacy data: include assigned entities that have tx/money
+    // even if sold proposals table is incomplete.
+    const existingKeys = new Set(list.map((r) => `${r.companyType}:${r.companyDisplayId}`));
+    const assignedOrgs = await db
+      .select({
+        displayId: organizations.displayId,
+        organizationName: organizations.organizationName,
+        transactions: organizations.transactions,
+        moneySpent: organizations.moneySpent,
+      })
+      .from(organizations)
+      .where(eq(organizations.assignedTo, current.username));
+    for (const org of assignedOrgs) {
+      if (!org.displayId) continue;
+      const tx = org.transactions ?? 0;
+      const money = org.moneySpent != null ? Number(org.moneySpent) : 0;
+      if (tx < 1 && money <= 0) continue;
+      const key = `org:${org.displayId}`;
+      if (existingKeys.has(key)) continue;
+      const last = lastActivityByCompany.get(key);
+      const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+      list.push({
+        proposalId: `org:${org.displayId}`,
+        companyType: "org",
+        companyDisplayId: org.displayId,
+        companyName: org.organizationName ?? org.displayId,
+        moneySpent: money,
+        transactions: tx,
+        dateLastSold: last?.createdAt ?? null,
+        lastActivityAt: last?.createdAt ?? null,
+        lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+        lastContactFirstName: contact?.firstName ?? null,
+        lastContactLastName: contact?.lastName ?? null,
+      });
+      existingKeys.add(key);
+    }
+
+    const assignedBiz = await db
+      .select({
+        displayId: businesses.displayId,
+        businessName: businesses.businessName,
+        transactions: businesses.transactions,
+        moneySpent: businesses.moneySpent,
+      })
+      .from(businesses)
+      .where(eq(businesses.assignedTo, current.username));
+    for (const biz of assignedBiz) {
+      if (!biz.displayId) continue;
+      const tx = biz.transactions ?? 0;
+      const money = biz.moneySpent != null ? Number(biz.moneySpent) : 0;
+      if (tx < 1 && money <= 0) continue;
+      const key = `business:${biz.displayId}`;
+      if (existingKeys.has(key)) continue;
+      const last = lastActivityByCompany.get(key);
+      const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+      list.push({
+        proposalId: `business:${biz.displayId}`,
+        companyType: "business",
+        companyDisplayId: biz.displayId,
+        companyName: biz.businessName ?? biz.displayId,
+        moneySpent: money,
+        transactions: tx,
+        dateLastSold: last?.createdAt ?? null,
+        lastActivityAt: last?.createdAt ?? null,
+        lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+        lastContactFirstName: contact?.firstName ?? null,
+        lastContactLastName: contact?.lastName ?? null,
+      });
+      existingKeys.add(key);
+    }
+
+    const assignedAgency = await db
+      .select({
+        displayId: agencies.displayId,
+        agencyName: agencies.agencyName,
+        transactions: agencies.transactions,
+        moneySpent: agencies.moneySpent,
+      })
+      .from(agencies)
+      .where(eq(agencies.assignedTo, current.username));
+    for (const agency of assignedAgency) {
+      if (!agency.displayId) continue;
+      const tx = agency.transactions ?? 0;
+      const money = agency.moneySpent != null ? Number(agency.moneySpent) : 0;
+      if (tx < 1 && money <= 0) continue;
+      const key = `agency:${agency.displayId}`;
+      if (existingKeys.has(key)) continue;
+      const last = lastActivityByCompany.get(key);
+      const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+      list.push({
+        proposalId: `agency:${agency.displayId}`,
+        companyType: "agency",
+        companyDisplayId: agency.displayId,
+        companyName: agency.agencyName ?? agency.displayId,
+        moneySpent: money,
+        transactions: tx,
+        dateLastSold: last?.createdAt ?? null,
+        lastActivityAt: last?.createdAt ?? null,
+        lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+        lastContactFirstName: contact?.firstName ?? null,
+        lastContactLastName: contact?.lastName ?? null,
+      });
+      existingKeys.add(key);
+    }
+
+    return NextResponse.json(list.filter((row) => row.transactions >= 1 || row.moneySpent > 0));
   } catch (err) {
     console.error("[api/my-clients GET]", err);
     return NextResponse.json([], { status: 200 });
