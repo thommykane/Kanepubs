@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, desc, and, inArray } from "drizzle-orm";
+import { eq, desc, and, inArray, gte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   proposals,
   businesses,
   organizations,
+  agencies,
   activities,
   contacts,
   sessions,
@@ -49,10 +50,13 @@ export async function GET(req: NextRequest) {
         proposal: proposals,
         businessName: businesses.businessName,
         organizationName: organizations.organizationName,
+        agencyName: agencies.agencyName,
         moneySpentBiz: businesses.moneySpent,
         moneySpentOrg: organizations.moneySpent,
+        moneySpentAgency: agencies.moneySpent,
         transactionsBiz: businesses.transactions,
         transactionsOrg: organizations.transactions,
+        transactionsAgency: agencies.transactions,
       })
       .from(proposals)
       .leftJoin(
@@ -62,6 +66,10 @@ export async function GET(req: NextRequest) {
       .leftJoin(
         organizations,
         and(eq(proposals.companyType, "org"), eq(proposals.companyDisplayId, organizations.displayId))
+      )
+      .leftJoin(
+        agencies,
+        and(eq(proposals.companyType, "agency"), eq(proposals.companyDisplayId, agencies.displayId))
       )
       .where(eq(proposals.status, "sold"))
       .orderBy(desc(proposals.statusUpdatedAt));
@@ -126,7 +134,9 @@ export async function GET(req: NextRequest) {
         const companyName =
           row.proposal.companyType === "business"
             ? row.businessName ?? row.proposal.companyDisplayId
-            : row.organizationName ?? row.proposal.companyDisplayId;
+            : row.proposal.companyType === "org"
+              ? row.organizationName ?? row.proposal.companyDisplayId
+              : row.agencyName ?? row.proposal.companyDisplayId;
         const totals = totalsByCompany.get(key) ?? { transactions: 0, moneySpent: 0 };
         const moneySpent = totals.moneySpent;
         const transactions = totals.transactions;
@@ -148,6 +158,42 @@ export async function GET(req: NextRequest) {
         };
       })
       .filter((row) => row.companyType === "agency" || row.transactions >= 1);
+
+    // Ensure agencies with 1+ transactions appear in All Clients,
+    // even when legacy data is present outside normal proposal history.
+    const agencyRows = await db
+      .select({
+        displayId: agencies.displayId,
+        agencyName: agencies.agencyName,
+        moneySpent: agencies.moneySpent,
+        transactions: agencies.transactions,
+        assignedTo: agencies.assignedTo,
+      })
+      .from(agencies)
+      .where(gte(agencies.transactions, 1));
+    const existingAgencyIds = new Set(
+      list.filter((r) => r.companyType === "agency").map((r) => r.companyDisplayId)
+    );
+    for (const agency of agencyRows) {
+      if (!agency.displayId || existingAgencyIds.has(agency.displayId)) continue;
+      const key = `agency:${agency.displayId}`;
+      const last = lastActivityByCompany.get(key);
+      const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+      list.push({
+        proposalId: `agency:${agency.displayId}`,
+        companyType: "agency",
+        companyDisplayId: agency.displayId,
+        companyName: agency.agencyName ?? agency.displayId,
+        moneySpent: agency.moneySpent != null ? Number(agency.moneySpent) : 0,
+        transactions: agency.transactions ?? 0,
+        dateLastSold: last?.createdAt ?? null,
+        lastActivityAt: last?.createdAt ?? null,
+        lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+        lastContactFirstName: contact?.firstName ?? null,
+        lastContactLastName: contact?.lastName ?? null,
+        assignedTo: agency.assignedTo ?? "",
+      });
+    }
 
     return NextResponse.json(list);
   } catch (err) {
