@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, and, ilike, isNull } from "drizzle-orm";
+import { desc, and, ilike, isNull, or, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses, organizations, sessions, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -39,19 +39,17 @@ export async function GET(req: NextRequest) {
     const typeQ = searchParams.get("type")?.trim();
     const tagsQ = searchParams.get("tags")?.trim();
 
-    const conditions = [];
+    // Only show leads: businesses with 0 transactions (never sold)
+    const leadsOnly = or(lt(businesses.transactions, 1), isNull(businesses.transactions));
+    const conditions = [leadsOnly];
     if (nameQ) conditions.push(ilike(businesses.businessName, `%${nameQ}%`));
     if (typeQ) conditions.push(ilike(businesses.businessType, `%${typeQ}%`));
     if (tagsQ) conditions.push(ilike(businesses.tags, `%${tagsQ}%`));
-    if (conditions.length > 0) {
-      const list = await db
-        .select()
-        .from(businesses)
-        .where(and(...conditions))
-        .orderBy(desc(businesses.createdAt));
-      return NextResponse.json(list);
-    }
-    const list = await db.select().from(businesses).orderBy(desc(businesses.createdAt));
+    const list = await db
+      .select()
+      .from(businesses)
+      .where(and(...conditions))
+      .orderBy(desc(businesses.createdAt));
     return NextResponse.json(list);
   } catch (err) {
     console.error("[api/businesses GET]", err);

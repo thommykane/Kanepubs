@@ -104,43 +104,45 @@ export async function GET(req: NextRequest) {
         : [];
     const contactMap = new Map(contactList.map((c) => [c.id, c]));
 
-    const list = soldProposals.map((row) => {
-      const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
-      const last = lastActivityByCompany.get(key);
-      const contact = last?.contactId ? contactMap.get(last.contactId) : null;
-      const companyName =
-        row.proposal.companyType === "business"
-          ? row.businessName ?? row.proposal.companyDisplayId
-          : row.organizationName ?? row.proposal.companyDisplayId;
-      const moneySpent =
-        row.proposal.companyType === "business"
-          ? row.moneySpentBiz != null
-            ? Number(row.moneySpentBiz)
-            : 0
-          : row.moneySpentOrg != null
-            ? Number(row.moneySpentOrg)
-            : 0;
-      const transactions =
-        row.proposal.companyType === "business"
-          ? row.transactionsBiz ?? 0
-          : row.transactionsOrg ?? 0;
-      const assignedTo = row.proposal.assignedTo ?? row.proposal.salesAgent;
+    const list = soldProposals
+      .map((row) => {
+        const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
+        const last = lastActivityByCompany.get(key);
+        const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+        const companyName =
+          row.proposal.companyType === "business"
+            ? row.businessName ?? row.proposal.companyDisplayId
+            : row.organizationName ?? row.proposal.companyDisplayId;
+        const moneySpent =
+          row.proposal.companyType === "business"
+            ? row.moneySpentBiz != null
+              ? Number(row.moneySpentBiz)
+              : 0
+            : row.moneySpentOrg != null
+              ? Number(row.moneySpentOrg)
+              : 0;
+        const transactions =
+          row.proposal.companyType === "business"
+            ? row.transactionsBiz ?? 0
+            : row.transactionsOrg ?? 0;
+        const assignedTo = row.proposal.assignedTo ?? row.proposal.salesAgent;
 
-      return {
-        proposalId: row.proposal.id,
-        companyType: row.proposal.companyType,
-        companyDisplayId: row.proposal.companyDisplayId,
-        companyName,
-        moneySpent,
-        transactions,
-        dateLastSold: row.proposal.statusUpdatedAt ? String(row.proposal.statusUpdatedAt) : null,
-        lastActivityAt: last?.createdAt ?? null,
-        lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
-        lastContactFirstName: contact?.firstName ?? null,
-        lastContactLastName: contact?.lastName ?? null,
-        assignedTo: assignedTo ?? null,
-      };
-    });
+        return {
+          proposalId: row.proposal.id,
+          companyType: row.proposal.companyType,
+          companyDisplayId: row.proposal.companyDisplayId,
+          companyName,
+          moneySpent,
+          transactions,
+          dateLastSold: row.proposal.statusUpdatedAt ? String(row.proposal.statusUpdatedAt) : null,
+          lastActivityAt: last?.createdAt ?? null,
+          lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+          lastContactFirstName: contact?.firstName ?? null,
+          lastContactLastName: contact?.lastName ?? null,
+          assignedTo: assignedTo ?? null,
+        };
+      })
+      .filter((row) => row.companyType === "agency" || row.transactions >= 1);
 
     return NextResponse.json(list);
   } catch (err) {
