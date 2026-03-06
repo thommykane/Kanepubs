@@ -32,7 +32,7 @@ export default function AllClientsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchClients = useCallback(async () => {
-    const res = await fetch("/api/all-clients");
+    const res = await fetch("/api/all-clients", { cache: "no-store" });
     if (res.status === 403) {
       setAccessDenied(true);
       setList([]);
@@ -57,7 +57,7 @@ export default function AllClientsPage() {
   }, [fetchClients]);
 
   useEffect(() => {
-    fetch("/api/users")
+    fetch("/api/users", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setUsers(Array.isArray(data) ? data : []));
   }, []);

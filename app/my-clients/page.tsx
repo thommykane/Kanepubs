@@ -31,7 +31,7 @@ export default function MyClientsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchClients = useCallback(async () => {
-    const res = await fetch("/api/my-clients");
+    const res = await fetch("/api/my-clients", { cache: "no-store" });
     if (res.status === 401) {
       setList([]);
       return;
@@ -50,13 +50,13 @@ export default function MyClientsPage() {
   }, [fetchClients]);
 
   useEffect(() => {
-    fetch("/api/users")
+    fetch("/api/users", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setUsers(Array.isArray(data) ? data : []));
   }, []);
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setIsAdmin(data?.user?.isAdmin ?? false));
   }, []);

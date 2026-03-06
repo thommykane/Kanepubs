@@ -35,6 +35,9 @@ async function getCurrentUser(req: NextRequest): Promise<{ username: string; isA
   return { username: user.username, isAdmin: user.isAdmin ?? false };
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const current = await getCurrentUser(req);
