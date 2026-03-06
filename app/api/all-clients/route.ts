@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, desc, and, inArray, gte } from "drizzle-orm";
+import { eq, desc, and, or, inArray, gte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   proposals,
   businesses,
   organizations,
   agencies,
+  agencyClients,
   activities,
   contacts,
   sessions,
@@ -195,7 +196,96 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(list);
+    // Normalize agency totals to match agency profile logic:
+    // include agency direct SOLD + linked org/business SOLD,
+    // with legacy sold activity fallback for older data.
+    const agencyDisplayIds = new Set(
+      list.filter((r) => r.companyType === "agency").map((r) => r.companyDisplayId).filter(Boolean)
+    );
+    const displayIdsToLoad = Array.from(agencyDisplayIds);
+    if (displayIdsToLoad.length > 0) {
+      const agencyMetaRows = await db
+        .select({
+          id: agencies.id,
+          displayId: agencies.displayId,
+          agencyName: agencies.agencyName,
+          assignedTo: agencies.assignedTo,
+        })
+        .from(agencies)
+        .where(inArray(agencies.displayId, displayIdsToLoad));
+
+      const totalsByAgency = new Map<string, { transactions: number; moneySpent: number }>();
+      for (const meta of agencyMetaRows) {
+        if (!meta.displayId) continue;
+        const clientRows = await db
+          .select({
+            companyDisplayId: agencyClients.companyDisplayId,
+            companyType: agencyClients.companyType,
+          })
+          .from(agencyClients)
+          .where(eq(agencyClients.agencyId, meta.id));
+
+        const orgIds = clientRows.filter((c) => c.companyType === "org").map((c) => c.companyDisplayId);
+        const bizIds = clientRows.filter((c) => c.companyType === "business").map((c) => c.companyDisplayId);
+        const soldCompanyFilters = [
+          and(eq(proposals.companyType, "agency"), eq(proposals.companyDisplayId, meta.displayId)),
+        ];
+        if (orgIds.length > 0) {
+          soldCompanyFilters.push(
+            and(eq(proposals.companyType, "org"), inArray(proposals.companyDisplayId, orgIds))
+          );
+        }
+        if (bizIds.length > 0) {
+          soldCompanyFilters.push(
+            and(eq(proposals.companyType, "business"), inArray(proposals.companyDisplayId, bizIds))
+          );
+        }
+
+        const [soldStats] = await db
+          .select({
+            transactions: sql<number>`count(*)::int`,
+            moneySpent: sql<string>`coalesce(sum(${proposals.amount}), 0)::text`,
+          })
+          .from(proposals)
+          .where(and(eq(proposals.status, "sold"), or(...soldCompanyFilters)));
+
+        const soldAgencyActivities = await db
+          .select({ proposalData: activities.proposalData })
+          .from(activities)
+          .where(
+            and(
+              eq(activities.companyType, "agency"),
+              eq(activities.companyDisplayId, meta.displayId),
+              eq(activities.actionType, "sold")
+            )
+          );
+        const activityTransactions = soldAgencyActivities.length;
+        const activityMoney = soldAgencyActivities.reduce((sum, row) => {
+          const pd = row.proposalData as { amount?: string | number } | null;
+          const amount = pd?.amount != null ? Number(pd.amount) : 0;
+          return sum + (Number.isFinite(amount) ? amount : 0);
+        }, 0);
+
+        const proposalTransactions = soldStats?.transactions ?? 0;
+        const proposalMoney = soldStats?.moneySpent != null ? Number(soldStats.moneySpent) : 0;
+        totalsByAgency.set(meta.displayId, {
+          transactions: Math.max(proposalTransactions, activityTransactions),
+          moneySpent: Math.max(proposalMoney, activityMoney),
+        });
+      }
+
+      for (const row of list) {
+        if (row.companyType !== "agency") continue;
+        const totals = totalsByAgency.get(row.companyDisplayId);
+        if (!totals) continue;
+        row.transactions = totals.transactions;
+        row.moneySpent = totals.moneySpent;
+      }
+    }
+
+    return NextResponse.json(
+      list.filter((row) => row.companyType !== "agency" || row.transactions >= 1)
+    );
   } catch (err) {
     console.error("[api/all-clients GET]", err);
     return NextResponse.json([], { status: 200 });
