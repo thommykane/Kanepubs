@@ -123,6 +123,17 @@ export async function GET(req: NextRequest) {
         : [];
     const contactMap = new Map(contactList.map((c) => [c.id, c]));
 
+    // Source of truth for client totals: SOLD proposals
+    const totalsByCompany = new Map<string, { transactions: number; moneySpent: number }>();
+    for (const row of soldProposals) {
+      const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
+      const current = totalsByCompany.get(key) ?? { transactions: 0, moneySpent: 0 };
+      const amountNum = row.proposal.amount != null ? Number(row.proposal.amount) : 0;
+      current.transactions += 1;
+      current.moneySpent += Number.isFinite(amountNum) ? amountNum : 0;
+      totalsByCompany.set(key, current);
+    }
+
     const list = soldProposals.map((row) => {
       const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
       const last = lastActivityByCompany.get(key);
@@ -133,18 +144,9 @@ export async function GET(req: NextRequest) {
           : row.proposal.companyType === "org"
             ? row.organizationName ?? row.proposal.companyDisplayId
             : row.agencyName ?? row.proposal.companyDisplayId;
-      const moneySpent =
-        row.proposal.companyType === "business"
-          ? row.moneySpentBiz != null ? Number(row.moneySpentBiz) : 0
-          : row.proposal.companyType === "org"
-            ? row.moneySpentOrg != null ? Number(row.moneySpentOrg) : 0
-            : row.moneySpentAgency != null ? Number(row.moneySpentAgency) : 0;
-      const transactions =
-        row.proposal.companyType === "business"
-          ? row.transactionsBiz ?? 0
-          : row.proposal.companyType === "org"
-            ? row.transactionsOrg ?? 0
-            : row.transactionsAgency ?? 0;
+      const totals = totalsByCompany.get(key) ?? { transactions: 0, moneySpent: 0 };
+      const moneySpent = totals.moneySpent;
+      const transactions = totals.transactions;
 
       return {
         proposalId: row.proposal.id,

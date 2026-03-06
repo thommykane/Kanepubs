@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { activities, sessions, users, proposals, contacts, businesses, organizations } from "@/lib/db/schema";
+import { activities, sessions, users, proposals, contacts, businesses, organizations, agencies } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
@@ -20,6 +20,85 @@ async function requireAdmin(req: NextRequest): Promise<boolean> {
   if (!session || new Date(session.expiresAt) < new Date()) return false;
   const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, session.userId)).limit(1);
   return user?.isAdmin ?? false;
+}
+
+async function incrementCompanyTotals(
+  companyType: string,
+  companyDisplayId: string,
+  saleAmount: number
+) {
+  if (companyType === "business") {
+    let b = (await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.displayId, companyDisplayId))
+      .limit(1))[0];
+    if (!b) {
+      b = (await db
+        .select()
+        .from(businesses)
+        .where(eq(businesses.id, companyDisplayId))
+        .limit(1))[0];
+    }
+    if (b) {
+      const currentMoney = b.moneySpent != null ? Number(b.moneySpent) : 0;
+      const currentTx = b.transactions ?? 0;
+      await db
+        .update(businesses)
+        .set({
+          moneySpent: (currentMoney + saleAmount).toFixed(2),
+          transactions: currentTx + 1,
+        })
+        .where(eq(businesses.id, b.id));
+    }
+    return;
+  }
+
+  if (companyType === "org") {
+    let o = (await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.displayId, companyDisplayId))
+      .limit(1))[0];
+    if (!o) {
+      o = (await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, companyDisplayId))
+        .limit(1))[0];
+    }
+    if (o) {
+      const currentMoney = o.moneySpent != null ? Number(o.moneySpent) : 0;
+      const currentTx = o.transactions ?? 0;
+      await db
+        .update(organizations)
+        .set({
+          moneySpent: (currentMoney + saleAmount).toFixed(2),
+          transactions: currentTx + 1,
+        })
+        .where(eq(organizations.id, o.id));
+    }
+    return;
+  }
+
+  if (companyType === "agency") {
+    const [a] = await db
+      .select({ id: agencies.id, moneySpent: agencies.moneySpent, transactions: agencies.transactions })
+      .from(agencies)
+      .where(eq(agencies.displayId, companyDisplayId))
+      .limit(1);
+    if (a) {
+      const currentMoney = a.moneySpent != null ? Number(a.moneySpent) : 0;
+      const currentTx = a.transactions ?? 0;
+      await db
+        .update(agencies)
+        .set({
+          moneySpent: (currentMoney + saleAmount).toFixed(2),
+          transactions: currentTx + 1,
+        })
+        .where(eq(agencies.id, a.id));
+    }
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -249,6 +328,9 @@ export async function POST(req: NextRequest) {
         statusUpdatedAt: backdatedAt,
         assignedTo: String(bodySalesAgent).trim(),
       });
+
+      const saleAmount = amountVal != null ? Number(amountVal) : 0;
+      await incrementCompanyTotals(companyTypeNorm, companyDisplayIdNorm, saleAmount);
 
       return NextResponse.json({ success: true, id: activityId });
     }
