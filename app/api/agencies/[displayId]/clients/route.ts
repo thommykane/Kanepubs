@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, organizations, businesses } from "@/lib/db/schema";
+import { agencies, agencyClients, organizations, businesses, contacts } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 
 /** POST: Add a client (organization or business) to an agency. Body: { companyDisplayId: string, companyType: "org" | "business" }. */
@@ -70,6 +70,31 @@ export async function POST(
       companyDisplayId,
       companyType,
     });
+
+    // If agency already has an owner, propagate owner to new linked entity + its contacts.
+    const [agencyOwner] = await db
+      .select({ assignedTo: agencies.assignedTo })
+      .from(agencies)
+      .where(eq(agencies.id, agency.id))
+      .limit(1);
+    if (agencyOwner) {
+      const assignedTo = agencyOwner.assignedTo ?? null;
+      if (companyType === "org") {
+        await db
+          .update(organizations)
+          .set({ assignedTo })
+          .where(eq(organizations.displayId, companyDisplayId));
+      } else {
+        await db
+          .update(businesses)
+          .set({ assignedTo })
+          .where(eq(businesses.displayId, companyDisplayId));
+      }
+      await db
+        .update(contacts)
+        .set({ assignedTo })
+        .where(eq(contacts.businessId, companyDisplayId));
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, sessions, users, proposals } from "@/lib/db/schema";
+import { agencies, agencyClients, businesses, contacts, organizations, sessions, users, proposals } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 import { getNextAgencyDisplayId } from "@/lib/next-display-id";
 
@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         zipCode: agencies.zipCode,
         phone: agencies.phone,
         website: agencies.website,
+        assignedTo: agencies.assignedTo,
         transactions: agencies.transactions,
         moneySpent: agencies.moneySpent,
         createdAt: agencies.createdAt,
@@ -152,6 +153,23 @@ export async function POST(req: NextRequest) {
         companyDisplayId,
         companyType,
       });
+
+      // Initial parent assignment propagation on creation.
+      if (companyType === "org") {
+        await db
+          .update(organizations)
+          .set({ assignedTo: username })
+          .where(eq(organizations.displayId, companyDisplayId));
+      } else {
+        await db
+          .update(businesses)
+          .set({ assignedTo: username })
+          .where(eq(businesses.displayId, companyDisplayId));
+      }
+      await db
+        .update(contacts)
+        .set({ assignedTo: username })
+        .where(eq(contacts.businessId, companyDisplayId));
     }
 
     return NextResponse.json({ success: true, id: agencyId, displayId });

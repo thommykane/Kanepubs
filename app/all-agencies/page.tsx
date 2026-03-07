@@ -13,6 +13,7 @@ type Agency = {
   zipCode: string | null;
   phone: string | null;
   website: string | null;
+  assignedTo: string | null;
   createdAt: string;
 };
 
@@ -55,6 +56,7 @@ export default function AllAgenciesPage() {
                 <th style={{ padding: "10px 12px", fontSize: "0.75rem", fontWeight: 600, color: "var(--gold-dim)", textTransform: "uppercase" }}>ID</th>
                 <th style={{ padding: "10px 12px", fontSize: "0.75rem", fontWeight: 600, color: "var(--gold-dim)", textTransform: "uppercase" }}>City / State</th>
                 <th style={{ padding: "10px 12px", fontSize: "0.75rem", fontWeight: 600, color: "var(--gold-dim)", textTransform: "uppercase" }}>Phone</th>
+                <th style={{ padding: "10px 12px", fontSize: "0.75rem", fontWeight: 600, color: "var(--gold-dim)", textTransform: "uppercase" }}>Assigned To</th>
               </tr>
             </thead>
             <tbody>
@@ -68,6 +70,7 @@ export default function AllAgenciesPage() {
                   <td style={tdStyle}>{a.displayId ?? "—"}</td>
                   <td style={tdStyle}>{[a.city, a.state].filter(Boolean).join(", ") || "—"}</td>
                   <td style={tdStyle}>{a.phone ?? "—"}</td>
+                  <td style={tdStyle}>{a.assignedTo ?? "Admin"}</td>
                 </tr>
               ))}
             </tbody>

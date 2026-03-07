@@ -132,12 +132,11 @@ function NewOrganizationForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ companyDisplayId: data.displayId, companyType: "org" }),
         });
-        if (linkRes.ok) {
-          router.push(`/all-agencies/${encodeURIComponent(agencyIdTrimmed)}`);
-          return;
+        if (!linkRes.ok) {
+          setErrorMessage("Organization created, but failed to link to agency.");
         }
       }
-      router.push("/all-organizations");
+      router.push(`/all-organizations/${data.displayId}`);
     } catch {
       setErrorMessage("Network error");
       setStatus("error");

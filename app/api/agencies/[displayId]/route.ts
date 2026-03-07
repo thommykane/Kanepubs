@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, sessions, users } from "@/lib/db/schema";
+import { agencies, agencyClients, businesses, contacts, organizations, sessions, users } from "@/lib/db/schema";
 
 async function requireAdmin(req: NextRequest): Promise<boolean> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -65,6 +65,40 @@ export async function PATCH(
       : undefined;
     if (assignedTo === undefined) return NextResponse.json({ success: true });
     await db.update(agencies).set({ assignedTo }).where(eq(agencies.id, agency.id));
+
+    // Parent -> children -> grandchild assignment propagation:
+    // agency -> linked businesses/orgs -> all related contacts.
+    const links = await db
+      .select({
+        companyType: agencyClients.companyType,
+        companyDisplayId: agencyClients.companyDisplayId,
+      })
+      .from(agencyClients)
+      .where(eq(agencyClients.agencyId, agency.id));
+    const orgIds = links.filter((l) => l.companyType === "org").map((l) => l.companyDisplayId);
+    const bizIds = links.filter((l) => l.companyType === "business").map((l) => l.companyDisplayId);
+
+    if (orgIds.length > 0) {
+      await db
+        .update(organizations)
+        .set({ assignedTo })
+        .where(inArray(organizations.displayId, orgIds));
+    }
+    if (bizIds.length > 0) {
+      await db
+        .update(businesses)
+        .set({ assignedTo })
+        .where(inArray(businesses.displayId, bizIds));
+    }
+
+    const contactScope = [displayId, ...orgIds, ...bizIds];
+    if (contactScope.length > 0) {
+      await db
+        .update(contacts)
+        .set({ assignedTo })
+        .where(inArray(contacts.businessId, contactScope));
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[api/agencies displayId PATCH]", err);
