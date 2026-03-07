@@ -7,7 +7,6 @@ const NEW_ENTRY_LINKS = [
   { href: "/new-organization", label: "New Organization" },
   { href: "/new-business", label: "New Business" },
   { href: "/new-agency", label: "New Agency" },
-  { href: "/new-contact", label: "New Contact" },
 ];
 
 const NEW_MEDIA_LINKS = [
@@ -37,6 +36,7 @@ const MY_ACCOUNT_LINKS = [
 ];
 
 const ADMIN_LINKS = [
+  { href: "/new-contact", label: "New Contact" },
   { href: "/all-contacts", label: "All Contacts" },
   { href: "/all-clients", label: "All Clients" },
   { href: "/csv-uploads", label: "CSV UPLOADS" },
