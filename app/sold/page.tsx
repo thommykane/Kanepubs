@@ -47,8 +47,6 @@ const PREVIOUS_YEAR_OPTIONS = ["2025", "2024", "2023", "2022", "2021"];
 export default function SoldPage() {
   const [list, setList] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [purgeConfirm, setPurgeConfirm] = useState(false);
-  const [purging, setPurging] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [users, setUsers] = useState<{ id: string; username: string }[]>([]);
   const [editModal, setEditModal] = useState<Row | null>(null);
@@ -275,20 +273,6 @@ export default function SoldPage() {
     }
   };
 
-  const handlePurgeSales = async () => {
-    setPurging(true);
-    try {
-      const res = await fetch("/api/proposals/purge-sold", { method: "POST" });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPurgeConfirm(false);
-        await fetchList();
-      }
-    } finally {
-      setPurging(false);
-    }
-  };
-
   return (
     <div style={{ width: "100%", padding: "1rem 0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
@@ -319,74 +303,10 @@ export default function SoldPage() {
                   ))}
                 </select>
               </label>
-              <button
-                type="button"
-                onClick={() => setPurgeConfirm(true)}
-                style={{
-                  padding: "0.5rem 0.75rem",
-                  background: "transparent",
-                  color: "#e57373",
-                  border: "1px solid #e57373",
-                  borderRadius: "6px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                }}
-              >
-                Purge all sales
-              </button>
             </div>
           </>
         )}
       </div>
-      {purgeConfirm && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            padding: "1rem",
-            background: "var(--glass)",
-            border: "1px solid var(--glass-border)",
-            borderRadius: "8px",
-          }}
-        >
-          <p style={{ color: "var(--gold-bright)", marginBottom: "0.75rem" }}>
-            Remove all SOLD records? This will also remove them from organization/business Recent Activity and revert each profile&apos;s Money Spent and Transactions. This cannot be undone.
-          </p>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              type="button"
-              onClick={() => setPurgeConfirm(false)}
-              disabled={purging}
-              style={{
-                padding: "0.5rem 1rem",
-                background: "var(--glass)",
-                color: "var(--gold-bright)",
-                border: "1px solid var(--glass-border)",
-                borderRadius: "6px",
-                cursor: purging ? "not-allowed" : "pointer",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handlePurgeSales}
-              disabled={purging}
-              style={{
-                padding: "0.5rem 1rem",
-                background: "#b71c1c",
-                color: "#fff",
-                border: "none",
-                borderRadius: "6px",
-                fontWeight: 600,
-                cursor: purging ? "not-allowed" : "pointer",
-              }}
-            >
-              {purging ? "Purging…" : "Purge all sales"}
-            </button>
-          </div>
-        </div>
-      )}
       {loading ? (
         <p style={{ color: "var(--gold-dim)" }}>Loading…</p>
       ) : list.length === 0 ? (
