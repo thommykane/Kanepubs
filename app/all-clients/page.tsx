@@ -23,6 +23,10 @@ type UserOption = { id: string; username: string };
 export default function AllClientsPage() {
   const [list, setList] = useState<ClientRow[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [searchName, setSearchName] = useState("");
+  const [searchDisplayId, setSearchDisplayId] = useState("");
+  const [searchAssignedTo, setSearchAssignedTo] = useState("");
+  const [searchCompanyType, setSearchCompanyType] = useState("");
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [selectionOpen, setSelectionOpen] = useState(false);
@@ -72,8 +76,13 @@ export default function AllClientsPage() {
   };
 
   const selectAll = () => {
-    if (selectedIds.size === list.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(list.map((r) => r.proposalId)));
+    const visibleIds = filteredList.map((r) => r.proposalId);
+    const visibleSelected = visibleIds.filter((id) => selectedIds.has(id)).length;
+    if (visibleIds.length > 0 && visibleSelected === visibleIds.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visibleIds));
+    }
   };
 
   const handleBulkAssign = async () => {
@@ -122,7 +131,30 @@ export default function AllClientsPage() {
   const companyHref = (row: ClientRow) =>
     row.companyType === "org"
       ? `/all-organizations/${row.companyDisplayId}`
-      : `/all-businesses/${row.companyDisplayId}`;
+      : row.companyType === "agency"
+        ? `/all-agencies/${row.companyDisplayId}`
+        : `/all-businesses/${row.companyDisplayId}`;
+
+  const companyLabel = (companyType: string) =>
+    companyType === "org" ? "Organization" : companyType === "agency" ? "Agency" : "Business";
+
+  const filteredList = list.filter((row) => {
+    const byName = searchName.trim()
+      ? row.companyName.toLowerCase().includes(searchName.trim().toLowerCase())
+      : true;
+    const byId = searchDisplayId.trim()
+      ? row.companyDisplayId.toLowerCase().includes(searchDisplayId.trim().toLowerCase())
+      : true;
+    const rowAssigned = row.assignedTo ?? "";
+    const byAssigned =
+      searchAssignedTo === "__UNASSIGNED__"
+        ? rowAssigned.trim() === ""
+        : searchAssignedTo
+          ? rowAssigned === searchAssignedTo
+          : true;
+    const byCompany = searchCompanyType ? row.companyType === searchCompanyType : true;
+    return byName && byId && byAssigned && byCompany;
+  });
 
   const inputStyle: React.CSSProperties = {
     padding: "0.4rem 0.6rem",
@@ -241,6 +273,52 @@ export default function AllClientsPage() {
 
       <div
         style={{
+          display: "flex",
+          gap: "0.75rem",
+          marginBottom: "1rem",
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Search by name"
+          value={searchName}
+          onChange={(e) => setSearchName(e.target.value)}
+          style={{ ...inputStyle, minWidth: "150px" }}
+        />
+        <input
+          type="text"
+          placeholder="Search by ID"
+          value={searchDisplayId}
+          onChange={(e) => setSearchDisplayId(e.target.value)}
+          style={{ ...inputStyle, minWidth: "140px" }}
+        />
+        <select
+          value={searchAssignedTo}
+          onChange={(e) => setSearchAssignedTo(e.target.value)}
+          style={{ ...inputStyle, minWidth: "170px" }}
+        >
+          <option value="">Assigned to (all)</option>
+          <option value="__UNASSIGNED__">Admin / Unassigned</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.username}>{u.username}</option>
+          ))}
+        </select>
+        <select
+          value={searchCompanyType}
+          onChange={(e) => setSearchCompanyType(e.target.value)}
+          style={{ ...inputStyle, minWidth: "160px" }}
+        >
+          <option value="">Company (all)</option>
+          <option value="org">Organizations</option>
+          <option value="business">Businesses</option>
+          <option value="agency">Agencies</option>
+        </select>
+      </div>
+
+      <div
+        style={{
           background: "var(--glass)",
           border: "1px solid var(--glass-border)",
           borderRadius: "8px",
@@ -249,9 +327,9 @@ export default function AllClientsPage() {
       >
         {loading ? (
           <div style={{ padding: "2rem", textAlign: "center", color: "var(--gold-dim)" }}>Loading…</div>
-        ) : list.length === 0 ? (
+        ) : filteredList.length === 0 ? (
           <div style={{ padding: "2rem", textAlign: "center", color: "var(--gold-dim)" }}>
-            No clients yet.
+            No clients match your filters.
           </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
@@ -272,10 +350,11 @@ export default function AllClientsPage() {
                         cursor: "pointer",
                       }}
                     >
-                      {selectedIds.size === list.length ? "Deselect all" : "Select all"}
+                      {filteredList.length > 0 && filteredList.every((r) => selectedIds.has(r.proposalId)) ? "Deselect all" : "Select all"}
                     </button>
                   </th>
                 )}
+                <th style={thStyle}>Company</th>
                 <th style={thStyle}>Organization / Business</th>
                 <th style={thStyle}>Assigned to</th>
                 <th style={thStyle}>Money spent</th>
@@ -286,7 +365,7 @@ export default function AllClientsPage() {
               </tr>
             </thead>
             <tbody>
-              {list.map((row) => (
+              {filteredList.map((row) => (
                 <tr
                   key={row.proposalId}
                   style={{
@@ -303,6 +382,7 @@ export default function AllClientsPage() {
                       />
                     </td>
                   )}
+                  <td style={tdStyle}>{companyLabel(row.companyType)}</td>
                   <td style={tdStyle}>
                     <Link href={companyHref(row)} style={{ color: "var(--gold-bright)", fontWeight: 700 }}>
                       {row.companyName}
