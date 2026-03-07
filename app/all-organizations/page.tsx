@@ -47,6 +47,7 @@ export default function AllOrganizationsPage() {
   const [searchName, setSearchName] = useState("");
   const [searchType, setSearchType] = useState("");
   const [searchTags, setSearchTags] = useState("");
+  const [searchAssignedTo, setSearchAssignedTo] = useState("");
   const [selectionColumnOpen, setSelectionColumnOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [assignToUsername, setAssignToUsername] = useState("");
@@ -64,10 +65,11 @@ export default function AllOrganizationsPage() {
     if (searchName.trim()) params.set("name", searchName.trim());
     if (searchType.trim()) params.set("type", searchType.trim());
     if (searchTags.trim()) params.set("tags", searchTags.trim());
+    if (searchAssignedTo.trim()) params.set("assignedTo", searchAssignedTo.trim());
     const res = await fetch(`/api/organizations?${params}`, { cache: "no-store" });
     const data = await res.json();
     setList(Array.isArray(data) ? data : []);
-  }, [searchName, searchType, searchTags]);
+  }, [searchName, searchType, searchTags, searchAssignedTo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -399,6 +401,17 @@ export default function AllOrganizationsPage() {
           onChange={(e) => setSearchTags(e.target.value)}
           style={{ ...inputStyle, minWidth: "140px" }}
         />
+        <select
+          value={searchAssignedTo}
+          onChange={(e) => setSearchAssignedTo(e.target.value)}
+          style={{ ...inputStyle, minWidth: "170px" }}
+        >
+          <option value="">Assigned to (all)</option>
+          <option value="__UNASSIGNED__">Admin / Unassigned</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.username}>{u.username}</option>
+          ))}
+        </select>
       </div>
 
       {editing && (

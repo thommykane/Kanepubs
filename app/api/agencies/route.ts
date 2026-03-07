@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
   try {
     const isAdmin = await requireAdmin(req);
     if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const { searchParams } = new URL(req.url);
+    const assignedToQ = searchParams.get("assignedTo")?.trim();
 
     const list = await db
       .select({
@@ -84,7 +86,13 @@ export async function GET(req: NextRequest) {
       return true;
     });
 
-    return NextResponse.json(leadAgencies);
+    const filtered = assignedToQ === "__UNASSIGNED__"
+      ? leadAgencies.filter((a) => !a.assignedTo)
+      : assignedToQ
+        ? leadAgencies.filter((a) => a.assignedTo === assignedToQ)
+        : leadAgencies;
+
+    return NextResponse.json(filtered);
   } catch (err) {
     console.error("[api/agencies GET]", err);
     return NextResponse.json([], { status: 200 });

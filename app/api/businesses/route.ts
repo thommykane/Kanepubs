@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
     const nameQ = searchParams.get("name")?.trim();
     const typeQ = searchParams.get("type")?.trim();
     const tagsQ = searchParams.get("tags")?.trim();
+    const assignedToQ = searchParams.get("assignedTo")?.trim();
 
     // Exclude businesses that have any sold proposal (source of truth), and those with transactions >= 1
     const soldBizIds = await db
@@ -71,6 +72,8 @@ export async function GET(req: NextRequest) {
     if (nameQ) conditions.push(ilike(businesses.businessName, `%${nameQ}%`));
     if (typeQ) conditions.push(ilike(businesses.businessType, `%${typeQ}%`));
     if (tagsQ) conditions.push(ilike(businesses.tags, `%${tagsQ}%`));
+    if (assignedToQ === "__UNASSIGNED__") conditions.push(isNull(businesses.assignedTo));
+    else if (assignedToQ) conditions.push(eq(businesses.assignedTo, assignedToQ));
     const list = await db
       .select()
       .from(businesses)

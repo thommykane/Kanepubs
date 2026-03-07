@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
     const nameQ = searchParams.get("name")?.trim();
     const typeQ = searchParams.get("type")?.trim();
     const tagsQ = searchParams.get("tags")?.trim();
+    const assignedToQ = searchParams.get("assignedTo")?.trim();
 
     // Exclude orgs that have any sold proposal (source of truth), and those with transactions >= 1
     const soldOrgIds = await db
@@ -71,6 +72,8 @@ export async function GET(req: NextRequest) {
     if (nameQ) conditions.push(ilike(organizations.organizationName, `%${nameQ}%`));
     if (typeQ) conditions.push(ilike(organizations.organizationType, `%${typeQ}%`));
     if (tagsQ) conditions.push(ilike(organizations.tags, `%${tagsQ}%`));
+    if (assignedToQ === "__UNASSIGNED__") conditions.push(isNull(organizations.assignedTo));
+    else if (assignedToQ) conditions.push(eq(organizations.assignedTo, assignedToQ));
     const list = await db
       .select()
       .from(organizations)
