@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, sessions, users, agencyClients, proposals } from "@/lib/db/schema";
+import { agencies, sessions, users, agencyClients, proposals, organizations, businesses } from "@/lib/db/schema";
 
 async function getCurrentUsername(req: NextRequest): Promise<string | null> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -19,6 +19,14 @@ export async function GET(req: NextRequest) {
   try {
     const username = await getCurrentUsername(req);
     if (!username) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const normalizeCompanyType = (value: string | null | undefined): "org" | "business" | "agency" | null => {
+      const t = String(value ?? "").trim().toLowerCase();
+      if (t === "org" || t === "organization") return "org";
+      if (t === "business" || t === "biz") return "business";
+      if (t === "agency") return "agency";
+      return null;
+    };
 
     const list = await db
       .select({
@@ -60,7 +68,47 @@ export async function GET(req: NextRequest) {
       .select({ companyType: proposals.companyType, companyDisplayId: proposals.companyDisplayId })
       .from(proposals)
       .where(eq(proposals.status, "sold"));
-    const soldSet = new Set(soldRows.map((r) => `${r.companyType}:${r.companyDisplayId}`));
+    const soldSet = new Set<string>();
+    for (const row of soldRows) {
+      const displayId = row.companyDisplayId ?? "";
+      if (!displayId) continue;
+      const normalizedType =
+        normalizeCompanyType(row.companyType) ??
+        (displayId.toUpperCase().startsWith("A")
+          ? "org"
+          : displayId.toUpperCase().startsWith("B")
+            ? "business"
+            : null);
+      if (normalizedType) soldSet.add(`${normalizedType}:${displayId}`);
+    }
+
+    const orgStats = await db
+      .select({
+        displayId: organizations.displayId,
+        transactions: organizations.transactions,
+        moneySpent: organizations.moneySpent,
+      })
+      .from(organizations);
+    const bizStats = await db
+      .select({
+        displayId: businesses.displayId,
+        transactions: businesses.transactions,
+        moneySpent: businesses.moneySpent,
+      })
+      .from(businesses);
+    const childIsClient = new Set<string>();
+    for (const row of orgStats) {
+      if (!row.displayId) continue;
+      const tx = row.transactions ?? 0;
+      const money = row.moneySpent != null ? Number(row.moneySpent) : 0;
+      if (tx >= 1 || money > 0) childIsClient.add(`org:${row.displayId}`);
+    }
+    for (const row of bizStats) {
+      if (!row.displayId) continue;
+      const tx = row.transactions ?? 0;
+      const money = row.moneySpent != null ? Number(row.moneySpent) : 0;
+      if (tx >= 1 || money > 0) childIsClient.add(`business:${row.displayId}`);
+    }
 
     const leadList = list.filter((a) => {
       const tx = a.transactions ?? 0;
@@ -69,7 +117,8 @@ export async function GET(req: NextRequest) {
       if (a.displayId && soldSet.has(`agency:${a.displayId}`)) return false;
       const linked = linksByAgency.get(a.id) ?? [];
       for (const c of linked) {
-        if (soldSet.has(`${c.companyType}:${c.companyDisplayId}`)) return false;
+        const key = `${c.companyType}:${c.companyDisplayId}`;
+        if (soldSet.has(key) || childIsClient.has(key)) return false;
       }
       return true;
     });

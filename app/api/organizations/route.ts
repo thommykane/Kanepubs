@@ -55,31 +55,48 @@ export async function GET(req: NextRequest) {
     const tagsQ = searchParams.get("tags")?.trim();
     const assignedToQ = searchParams.get("assignedTo")?.trim();
 
-    // Exclude orgs that have any sold proposal (source of truth), and those with transactions >= 1
-    const soldOrgIds = await db
-      .select({ companyDisplayId: proposals.companyDisplayId })
+    const normalizeCompanyType = (value: string | null | undefined): "org" | "business" | "agency" | null => {
+      const t = String(value ?? "").trim().toLowerCase();
+      if (t === "org" || t === "organization") return "org";
+      if (t === "business" || t === "biz") return "business";
+      if (t === "agency") return "agency";
+      return null;
+    };
+
+    // Exclude orgs that have any SOLD proposal, including legacy companyType variants.
+    const soldRows = await db
+      .select({ companyType: proposals.companyType, companyDisplayId: proposals.companyDisplayId })
       .from(proposals)
-      .where(and(eq(proposals.status, "sold"), eq(proposals.companyType, "org")));
-    const soldDisplayIds = soldOrgIds.map((r) => r.companyDisplayId).filter(Boolean);
-    const leadsOnly =
-      soldDisplayIds.length > 0
-        ? notInArray(organizations.displayId, soldDisplayIds)
-        : undefined;
+      .where(eq(proposals.status, "sold"));
+    const soldOrgDisplayIds = new Set<string>();
+    for (const row of soldRows) {
+      const displayId = row.companyDisplayId ?? "";
+      const normalizedType = normalizeCompanyType(row.companyType);
+      const inferredType = normalizedType ?? (displayId.toUpperCase().startsWith("A") ? "org" : null);
+      if (inferredType === "org" && displayId) soldOrgDisplayIds.add(displayId);
+    }
+    const soldDisplayIds = Array.from(soldOrgDisplayIds);
+    const notSoldFilter = soldDisplayIds.length > 0 ? notInArray(organizations.displayId, soldDisplayIds) : undefined;
 
     const conditions = [];
-    if (leadsOnly) conditions.push(leadsOnly);
-    conditions.push(or(lt(organizations.transactions, 1), isNull(organizations.transactions)));
+    if (notSoldFilter) conditions.push(notSoldFilter);
     if (nameQ) conditions.push(ilike(organizations.organizationName, `%${nameQ}%`));
     if (typeQ) conditions.push(ilike(organizations.organizationType, `%${typeQ}%`));
     if (tagsQ) conditions.push(ilike(organizations.tags, `%${tagsQ}%`));
     if (assignedToQ === "__UNASSIGNED__") conditions.push(isNull(organizations.assignedTo));
     else if (assignedToQ) conditions.push(eq(organizations.assignedTo, assignedToQ));
-    const list = await db
+    const filtered = await db
       .select()
       .from(organizations)
       .where(and(...conditions))
       .orderBy(desc(organizations.createdAt));
-    return NextResponse.json(list);
+    const leadList = filtered.filter((o) => {
+      const tx = o.transactions ?? 0;
+      const money = o.moneySpent != null ? Number(o.moneySpent) : 0;
+      // Lead means no sales signal at all.
+      return tx < 1 && money <= 0;
+    });
+    return NextResponse.json(leadList);
   } catch (err) {
     console.error("[api/organizations GET]", err);
     return NextResponse.json([], { status: 200 });

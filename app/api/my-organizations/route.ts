@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { organizations, sessions, users, activities, proposals } from "@/lib/db/schema";
 
@@ -34,11 +34,27 @@ export async function GET(req: NextRequest) {
     const username = await getCurrentUsername(req);
     if (!username) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const soldOrgDisplayIds = await db
-      .select({ companyDisplayId: proposals.companyDisplayId })
+    const normalizeCompanyType = (value: string | null | undefined): "org" | "business" | "agency" | null => {
+      const t = String(value ?? "").trim().toLowerCase();
+      if (t === "org" || t === "organization") return "org";
+      if (t === "business" || t === "biz") return "business";
+      if (t === "agency") return "agency";
+      return null;
+    };
+
+    const soldRows = await db
+      .select({ companyType: proposals.companyType, companyDisplayId: proposals.companyDisplayId })
       .from(proposals)
-      .where(and(eq(proposals.status, "sold"), eq(proposals.companyType, "org")));
-    const soldIds = [...new Set(soldOrgDisplayIds.map((r) => r.companyDisplayId).filter(Boolean))] as string[];
+      .where(eq(proposals.status, "sold"));
+    const soldIdsSet = new Set<string>();
+    for (const row of soldRows) {
+      const displayId = row.companyDisplayId ?? "";
+      if (!displayId) continue;
+      const normalizedType = normalizeCompanyType(row.companyType);
+      const inferredType = normalizedType ?? (displayId.toUpperCase().startsWith("A") ? "org" : null);
+      if (inferredType === "org") soldIdsSet.add(displayId);
+    }
+    const soldIds = Array.from(soldIdsSet);
 
     const orgs = await db
       .select()

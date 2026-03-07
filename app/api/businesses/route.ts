@@ -55,31 +55,47 @@ export async function GET(req: NextRequest) {
     const tagsQ = searchParams.get("tags")?.trim();
     const assignedToQ = searchParams.get("assignedTo")?.trim();
 
-    // Exclude businesses that have any sold proposal (source of truth), and those with transactions >= 1
-    const soldBizIds = await db
-      .select({ companyDisplayId: proposals.companyDisplayId })
+    const normalizeCompanyType = (value: string | null | undefined): "org" | "business" | "agency" | null => {
+      const t = String(value ?? "").trim().toLowerCase();
+      if (t === "org" || t === "organization") return "org";
+      if (t === "business" || t === "biz") return "business";
+      if (t === "agency") return "agency";
+      return null;
+    };
+
+    // Exclude businesses that have any SOLD proposal, including legacy companyType variants.
+    const soldRows = await db
+      .select({ companyType: proposals.companyType, companyDisplayId: proposals.companyDisplayId })
       .from(proposals)
-      .where(and(eq(proposals.status, "sold"), eq(proposals.companyType, "business")));
-    const soldDisplayIds = soldBizIds.map((r) => r.companyDisplayId).filter(Boolean);
-    const leadsOnly =
-      soldDisplayIds.length > 0
-        ? notInArray(businesses.displayId, soldDisplayIds)
-        : undefined;
+      .where(eq(proposals.status, "sold"));
+    const soldBizDisplayIds = new Set<string>();
+    for (const row of soldRows) {
+      const displayId = row.companyDisplayId ?? "";
+      const normalizedType = normalizeCompanyType(row.companyType);
+      const inferredType = normalizedType ?? (displayId.toUpperCase().startsWith("B") ? "business" : null);
+      if (inferredType === "business" && displayId) soldBizDisplayIds.add(displayId);
+    }
+    const soldDisplayIds = Array.from(soldBizDisplayIds);
+    const notSoldFilter = soldDisplayIds.length > 0 ? notInArray(businesses.displayId, soldDisplayIds) : undefined;
 
     const conditions = [];
-    if (leadsOnly) conditions.push(leadsOnly);
-    conditions.push(or(lt(businesses.transactions, 1), isNull(businesses.transactions)));
+    if (notSoldFilter) conditions.push(notSoldFilter);
     if (nameQ) conditions.push(ilike(businesses.businessName, `%${nameQ}%`));
     if (typeQ) conditions.push(ilike(businesses.businessType, `%${typeQ}%`));
     if (tagsQ) conditions.push(ilike(businesses.tags, `%${tagsQ}%`));
     if (assignedToQ === "__UNASSIGNED__") conditions.push(isNull(businesses.assignedTo));
     else if (assignedToQ) conditions.push(eq(businesses.assignedTo, assignedToQ));
-    const list = await db
+    const filtered = await db
       .select()
       .from(businesses)
       .where(and(...conditions))
       .orderBy(desc(businesses.createdAt));
-    return NextResponse.json(list);
+    const leadList = filtered.filter((b) => {
+      const tx = b.transactions ?? 0;
+      const money = b.moneySpent != null ? Number(b.moneySpent) : 0;
+      return tx < 1 && money <= 0;
+    });
+    return NextResponse.json(leadList);
   } catch (err) {
     console.error("[api/businesses GET]", err);
     return NextResponse.json([], { status: 200 });

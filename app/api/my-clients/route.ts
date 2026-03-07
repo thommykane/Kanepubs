@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, desc, or, and, inArray } from "drizzle-orm";
+import { eq, desc, or, and, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   proposals,
   businesses,
   organizations,
   agencies,
+  agencyClients,
   activities,
   contacts,
   sessions,
@@ -43,6 +44,13 @@ export async function GET(req: NextRequest) {
   try {
     const current = await getCurrentUser(req);
     if (!current) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const normalizeCompanyType = (value: string | null | undefined): "org" | "business" | "agency" | null => {
+      const t = String(value ?? "").trim().toLowerCase();
+      if (t === "org" || t === "organization") return "org";
+      if (t === "business" || t === "biz") return "business";
+      if (t === "agency") return "agency";
+      return null;
+    };
 
     const soldProposals = await db
       .select({
@@ -126,7 +134,10 @@ export async function GET(req: NextRequest) {
     // Source of truth for client totals: SOLD proposals
     const totalsByCompany = new Map<string, { transactions: number; moneySpent: number }>();
     for (const row of soldProposals) {
-      const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
+      const displayId = row.proposal.companyDisplayId ?? "";
+      const normalizedType = normalizeCompanyType(row.proposal.companyType);
+      if (!displayId || !normalizedType) continue;
+      const key = `${normalizedType}:${displayId}`;
       const current = totalsByCompany.get(key) ?? { transactions: 0, moneySpent: 0 };
       const amountNum = row.proposal.amount != null ? Number(row.proposal.amount) : 0;
       current.transactions += 1;
@@ -135,13 +146,14 @@ export async function GET(req: NextRequest) {
     }
 
     const list = soldProposals.map((row) => {
-      const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
+      const normalizedType = normalizeCompanyType(row.proposal.companyType) ?? row.proposal.companyType;
+      const key = `${normalizedType}:${row.proposal.companyDisplayId}`;
       const last = lastActivityByCompany.get(key);
       const contact = last?.contactId ? contactMap.get(last.contactId) : null;
       const companyName =
-        row.proposal.companyType === "business"
+        normalizedType === "business"
           ? row.businessName ?? row.proposal.companyDisplayId
-          : row.proposal.companyType === "org"
+          : normalizedType === "org"
             ? row.organizationName ?? row.proposal.companyDisplayId
             : row.agencyName ?? row.proposal.companyDisplayId;
       const totals = totalsByCompany.get(key) ?? { transactions: 0, moneySpent: 0 };
@@ -150,7 +162,7 @@ export async function GET(req: NextRequest) {
 
       return {
         proposalId: row.proposal.id,
-        companyType: row.proposal.companyType,
+        companyType: normalizedType,
         companyDisplayId: row.proposal.companyDisplayId,
         companyName,
         moneySpent,
@@ -265,6 +277,92 @@ export async function GET(req: NextRequest) {
         lastContactFirstName: contact?.firstName ?? null,
         lastContactLastName: contact?.lastName ?? null,
       });
+      existingKeys.add(key);
+    }
+
+    // Ensure assigned agencies move into My Clients when agency or any linked
+    // org/business has transacted business.
+    const assignedAgencyMeta = await db
+      .select({
+        id: agencies.id,
+        displayId: agencies.displayId,
+        agencyName: agencies.agencyName,
+      })
+      .from(agencies)
+      .where(eq(agencies.assignedTo, current.username));
+    for (const agency of assignedAgencyMeta) {
+      if (!agency.displayId) continue;
+      const linked = await db
+        .select({
+          companyDisplayId: agencyClients.companyDisplayId,
+          companyType: agencyClients.companyType,
+        })
+        .from(agencyClients)
+        .where(eq(agencyClients.agencyId, agency.id));
+      const orgIds = linked.filter((c) => c.companyType === "org").map((c) => c.companyDisplayId);
+      const bizIds = linked.filter((c) => c.companyType === "business").map((c) => c.companyDisplayId);
+      const soldCompanyFilters = [
+        and(eq(proposals.companyType, "agency"), eq(proposals.companyDisplayId, agency.displayId)),
+      ];
+      if (orgIds.length > 0) {
+        soldCompanyFilters.push(and(eq(proposals.companyType, "org"), inArray(proposals.companyDisplayId, orgIds)));
+      }
+      if (bizIds.length > 0) {
+        soldCompanyFilters.push(and(eq(proposals.companyType, "business"), inArray(proposals.companyDisplayId, bizIds)));
+      }
+      const [soldStats] = await db
+        .select({
+          transactions: sql<number>`count(*)::int`,
+          moneySpent: sql<string>`coalesce(sum(${proposals.amount}), 0)::text`,
+        })
+        .from(proposals)
+        .where(and(eq(proposals.status, "sold"), or(...soldCompanyFilters)));
+
+      const soldAgencyActivities = await db
+        .select({ proposalData: activities.proposalData })
+        .from(activities)
+        .where(
+          and(
+            eq(activities.companyType, "agency"),
+            eq(activities.companyDisplayId, agency.displayId),
+            eq(activities.actionType, "sold")
+          )
+        );
+      const activityTransactions = soldAgencyActivities.length;
+      const activityMoney = soldAgencyActivities.reduce((sum, row) => {
+        const pd = row.proposalData as { amount?: string | number } | null;
+        const amount = pd?.amount != null ? Number(pd.amount) : 0;
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
+
+      const proposalTransactions = soldStats?.transactions ?? 0;
+      const proposalMoney = soldStats?.moneySpent != null ? Number(soldStats.moneySpent) : 0;
+      const transactions = Math.max(proposalTransactions, activityTransactions);
+      const moneySpent = Math.max(proposalMoney, activityMoney);
+      if (transactions < 1 && moneySpent <= 0) continue;
+
+      const key = `agency:${agency.displayId}`;
+      const existingIdx = list.findIndex((row) => row.companyType === "agency" && row.companyDisplayId === agency.displayId);
+      if (existingIdx >= 0) {
+        list[existingIdx].transactions = transactions;
+        list[existingIdx].moneySpent = moneySpent;
+      } else {
+        const last = lastActivityByCompany.get(key);
+        const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+        list.push({
+          proposalId: `agency:${agency.displayId}`,
+          companyType: "agency",
+          companyDisplayId: agency.displayId,
+          companyName: agency.agencyName ?? agency.displayId,
+          moneySpent,
+          transactions,
+          dateLastSold: last?.createdAt ?? null,
+          lastActivityAt: last?.createdAt ?? null,
+          lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+          lastContactFirstName: contact?.firstName ?? null,
+          lastContactLastName: contact?.lastName ?? null,
+        });
+      }
       existingKeys.add(key);
     }
 

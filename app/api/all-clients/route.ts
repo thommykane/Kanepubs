@@ -45,6 +45,26 @@ export async function GET(req: NextRequest) {
     const current = await getCurrentUser(req);
     if (!current) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (!current.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const normalizeCompanyType = (value: string | null | undefined): "org" | "business" | "agency" | null => {
+      const t = String(value ?? "").trim().toLowerCase();
+      if (t === "org" || t === "organization") return "org";
+      if (t === "business" || t === "biz") return "business";
+      if (t === "agency") return "agency";
+      return null;
+    };
+
+    const soldProposalRowsRaw = await db
+      .select({
+        id: proposals.id,
+        companyType: proposals.companyType,
+        companyDisplayId: proposals.companyDisplayId,
+        amount: proposals.amount,
+        assignedTo: proposals.assignedTo,
+        salesAgent: proposals.salesAgent,
+        statusUpdatedAt: proposals.statusUpdatedAt,
+      })
+      .from(proposals)
+      .where(eq(proposals.status, "sold"));
 
     const soldProposals = await db
       .select({
@@ -116,15 +136,25 @@ export async function GET(req: NextRequest) {
         : [];
     const contactMap = new Map(contactList.map((c) => [c.id, c]));
 
-    // Source of truth for client totals: SOLD proposals
+    // Source of truth for client totals: SOLD proposals (normalized companyType).
     const totalsByCompany = new Map<string, { transactions: number; moneySpent: number }>();
-    for (const row of soldProposals) {
-      const key = `${row.proposal.companyType}:${row.proposal.companyDisplayId}`;
-      const current = totalsByCompany.get(key) ?? { transactions: 0, moneySpent: 0 };
-      const amountNum = row.proposal.amount != null ? Number(row.proposal.amount) : 0;
-      current.transactions += 1;
-      current.moneySpent += Number.isFinite(amountNum) ? amountNum : 0;
-      totalsByCompany.set(key, current);
+    for (const row of soldProposalRowsRaw) {
+      const displayId = row.companyDisplayId ?? "";
+      if (!displayId) continue;
+      const normalizedType =
+        normalizeCompanyType(row.companyType) ??
+        (displayId.toUpperCase().startsWith("A")
+          ? "org"
+          : displayId.toUpperCase().startsWith("B")
+            ? "business"
+            : null);
+      if (!normalizedType) continue;
+      const key = `${normalizedType}:${displayId}`;
+      const currentTotals = totalsByCompany.get(key) ?? { transactions: 0, moneySpent: 0 };
+      const amountNum = row.amount != null ? Number(row.amount) : 0;
+      currentTotals.transactions += 1;
+      currentTotals.moneySpent += Number.isFinite(amountNum) ? amountNum : 0;
+      totalsByCompany.set(key, currentTotals);
     }
 
     const list = soldProposals
@@ -159,6 +189,96 @@ export async function GET(req: NextRequest) {
         };
       })
       .filter((row) => row.companyType === "agency" || row.transactions >= 1);
+
+    // Backfill rows missing due to legacy/non-canonical companyType values.
+    const existingCompanyKeys = new Set(list.map((r) => `${r.companyType}:${r.companyDisplayId}`));
+    const missingRawRows: {
+      id: string;
+      normalizedType: "org" | "business" | "agency";
+      displayId: string;
+      assignedTo: string | null;
+      salesAgent: string | null;
+      statusUpdatedAt: Date | null;
+    }[] = [];
+    for (const row of soldProposalRowsRaw) {
+      const displayId = row.companyDisplayId ?? "";
+      if (!displayId) continue;
+      const normalizedType =
+        normalizeCompanyType(row.companyType) ??
+        (displayId.toUpperCase().startsWith("A")
+          ? "org"
+          : displayId.toUpperCase().startsWith("B")
+            ? "business"
+            : null);
+      if (!normalizedType) continue;
+      const key = `${normalizedType}:${displayId}`;
+      if (!existingCompanyKeys.has(key)) {
+        missingRawRows.push({
+          id: row.id,
+          normalizedType,
+          displayId,
+          assignedTo: row.assignedTo ?? null,
+          salesAgent: row.salesAgent ?? null,
+          statusUpdatedAt: row.statusUpdatedAt ?? null,
+        });
+        existingCompanyKeys.add(key);
+      }
+    }
+    if (missingRawRows.length > 0) {
+      const missingOrgIds = [...new Set(missingRawRows.filter((r) => r.normalizedType === "org").map((r) => r.displayId))];
+      const missingBizIds = [...new Set(missingRawRows.filter((r) => r.normalizedType === "business").map((r) => r.displayId))];
+      const missingAgencyIds = [...new Set(missingRawRows.filter((r) => r.normalizedType === "agency").map((r) => r.displayId))];
+
+      const orgNames = new Map<string, string | null>();
+      const bizNames = new Map<string, string | null>();
+      const agencyNames = new Map<string, string | null>();
+      if (missingOrgIds.length > 0) {
+        const rows = await db
+          .select({ displayId: organizations.displayId, name: organizations.organizationName })
+          .from(organizations)
+          .where(inArray(organizations.displayId, missingOrgIds));
+        for (const row of rows) if (row.displayId) orgNames.set(row.displayId, row.name);
+      }
+      if (missingBizIds.length > 0) {
+        const rows = await db
+          .select({ displayId: businesses.displayId, name: businesses.businessName })
+          .from(businesses)
+          .where(inArray(businesses.displayId, missingBizIds));
+        for (const row of rows) if (row.displayId) bizNames.set(row.displayId, row.name);
+      }
+      if (missingAgencyIds.length > 0) {
+        const rows = await db
+          .select({ displayId: agencies.displayId, name: agencies.agencyName })
+          .from(agencies)
+          .where(inArray(agencies.displayId, missingAgencyIds));
+        for (const row of rows) if (row.displayId) agencyNames.set(row.displayId, row.name);
+      }
+
+      for (const row of missingRawRows) {
+        const key = `${row.normalizedType}:${row.displayId}`;
+        const totals = totalsByCompany.get(key) ?? { transactions: 0, moneySpent: 0 };
+        const companyName =
+          row.normalizedType === "org"
+            ? orgNames.get(row.displayId) ?? row.displayId
+            : row.normalizedType === "business"
+              ? bizNames.get(row.displayId) ?? row.displayId
+              : agencyNames.get(row.displayId) ?? row.displayId;
+        list.push({
+          proposalId: row.id,
+          companyType: row.normalizedType,
+          companyDisplayId: row.displayId,
+          companyName,
+          moneySpent: totals.moneySpent,
+          transactions: totals.transactions,
+          dateLastSold: row.statusUpdatedAt ? String(row.statusUpdatedAt) : null,
+          lastActivityAt: null,
+          lastActivityType: null,
+          lastContactFirstName: null,
+          lastContactLastName: null,
+          assignedTo: row.assignedTo ?? row.salesAgent ?? "",
+        });
+      }
+    }
 
     // Ensure agencies with 1+ transactions appear in All Clients,
     // even when legacy data is present outside normal proposal history.
@@ -198,7 +318,7 @@ export async function GET(req: NextRequest) {
 
     // Fallback for legacy data: include orgs/businesses with tx/money
     // even if sold proposals table is incomplete.
-    const existingCompanyKeys = new Set(list.map((r) => `${r.companyType}:${r.companyDisplayId}`));
+    const existingCompanyKeysFinal = new Set(list.map((r) => `${r.companyType}:${r.companyDisplayId}`));
     const orgRows = await db
       .select({
         displayId: organizations.displayId,
@@ -214,7 +334,7 @@ export async function GET(req: NextRequest) {
       const money = org.moneySpent != null ? Number(org.moneySpent) : 0;
       if (tx < 1 && money <= 0) continue;
       const key = `org:${org.displayId}`;
-      if (existingCompanyKeys.has(key)) continue;
+      if (existingCompanyKeysFinal.has(key)) continue;
       const last = lastActivityByCompany.get(key);
       const contact = last?.contactId ? contactMap.get(last.contactId) : null;
       list.push({
@@ -231,7 +351,7 @@ export async function GET(req: NextRequest) {
         lastContactLastName: contact?.lastName ?? null,
         assignedTo: org.assignedTo ?? "",
       });
-      existingCompanyKeys.add(key);
+      existingCompanyKeysFinal.add(key);
     }
 
     const bizRows = await db
@@ -249,7 +369,7 @@ export async function GET(req: NextRequest) {
       const money = biz.moneySpent != null ? Number(biz.moneySpent) : 0;
       if (tx < 1 && money <= 0) continue;
       const key = `business:${biz.displayId}`;
-      if (existingCompanyKeys.has(key)) continue;
+      if (existingCompanyKeysFinal.has(key)) continue;
       const last = lastActivityByCompany.get(key);
       const contact = last?.contactId ? contactMap.get(last.contactId) : null;
       list.push({
@@ -266,7 +386,7 @@ export async function GET(req: NextRequest) {
         lastContactLastName: contact?.lastName ?? null,
         assignedTo: biz.assignedTo ?? "",
       });
-      existingCompanyKeys.add(key);
+      existingCompanyKeysFinal.add(key);
     }
 
     // Normalize agency totals to match agency profile logic:
