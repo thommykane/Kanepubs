@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencies, agencyClients, businesses, contacts, organizations, sessions, users, proposals } from "@/lib/db/schema";
+import { agencies, agencyClients, activities, businesses, contacts, organizations, sessions, users, proposals } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 import { getNextAgencyDisplayId } from "@/lib/next-display-id";
 
@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
       })
       .from(agencies)
       .orderBy(desc(agencies.createdAt));
+    const agencyDisplayIds = new Set(list.map((a) => a.displayId).filter((v): v is string => Boolean(v)));
 
     const links = await db
       .select({
@@ -90,8 +91,32 @@ export async function GET(req: NextRequest) {
           ? "org"
           : displayId.toUpperCase().startsWith("B")
             ? "business"
-            : null);
+            : agencyDisplayIds.has(displayId)
+              ? "agency"
+              : null);
       if (inferredType) soldSet.add(`${inferredType}:${displayId}`);
+    }
+
+    // Legacy safety net: SOLD in activity history should also classify as client.
+    const soldActivityRows = await db
+      .select({ companyType: activities.companyType, companyDisplayId: activities.companyDisplayId })
+      .from(activities)
+      .where(eq(activities.actionType, "sold"));
+    const soldActivitySet = new Set<string>();
+    for (const row of soldActivityRows) {
+      const displayId = row.companyDisplayId ?? "";
+      if (!displayId) continue;
+      const normalizedType = normalizeCompanyType(row.companyType);
+      const inferredType =
+        normalizedType ??
+        (displayId.toUpperCase().startsWith("A")
+          ? "org"
+          : displayId.toUpperCase().startsWith("B")
+            ? "business"
+            : agencyDisplayIds.has(displayId)
+              ? "agency"
+              : null);
+      if (inferredType) soldActivitySet.add(`${inferredType}:${displayId}`);
     }
 
     // Linked child tx/money also qualifies agency as client.
@@ -127,11 +152,11 @@ export async function GET(req: NextRequest) {
       const tx = a.transactions ?? 0;
       const money = a.moneySpent != null ? Number(a.moneySpent) : 0;
       if (tx >= 1 || money > 0) return false;
-      if (a.displayId && soldSet.has(`agency:${a.displayId}`)) return false;
+      if (a.displayId && (soldSet.has(`agency:${a.displayId}`) || soldActivitySet.has(`agency:${a.displayId}`))) return false;
       const linked = linksByAgency.get(a.id) ?? [];
       for (const c of linked) {
         const key = `${c.companyType}:${c.companyDisplayId}`;
-        if (soldSet.has(key) || childIsClient.has(key)) return false;
+        if (soldSet.has(key) || soldActivitySet.has(key) || childIsClient.has(key)) return false;
       }
       return true;
     });
