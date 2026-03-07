@@ -83,7 +83,15 @@ export async function GET(req: NextRequest) {
     if (nameQ) conditions.push(ilike(businesses.businessName, `%${nameQ}%`));
     if (typeQ) conditions.push(ilike(businesses.businessType, `%${typeQ}%`));
     if (tagsQ) conditions.push(ilike(businesses.tags, `%${tagsQ}%`));
-    if (assignedToQ === "__UNASSIGNED__") conditions.push(isNull(businesses.assignedTo));
+    if (assignedToQ === "__UNASSIGNED__") {
+      conditions.push(
+        or(
+          isNull(businesses.assignedTo),
+          eq(businesses.assignedTo, "Admin"),
+          eq(businesses.assignedTo, "admin")
+        )
+      );
+    }
     else if (assignedToQ) conditions.push(eq(businesses.assignedTo, assignedToQ));
     const filtered = await db
       .select()

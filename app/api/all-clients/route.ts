@@ -389,90 +389,105 @@ export async function GET(req: NextRequest) {
       existingCompanyKeysFinal.add(key);
     }
 
-    // Normalize agency totals to match agency profile logic:
+    // Normalize agency totals to match agency profile logic and ensure inclusion:
     // include agency direct SOLD + linked org/business SOLD,
     // with legacy sold activity fallback for older data.
-    const agencyDisplayIds = new Set(
-      list.filter((r) => r.companyType === "agency").map((r) => r.companyDisplayId).filter(Boolean)
+    const agencyMetaRows = await db
+      .select({
+        id: agencies.id,
+        displayId: agencies.displayId,
+        agencyName: agencies.agencyName,
+        assignedTo: agencies.assignedTo,
+      })
+      .from(agencies);
+
+    const existingAgencyByDisplayId = new Map(
+      list
+        .filter((r) => r.companyType === "agency")
+        .map((r) => [r.companyDisplayId, r] as const)
     );
-    const displayIdsToLoad = Array.from(agencyDisplayIds);
-    if (displayIdsToLoad.length > 0) {
-      const agencyMetaRows = await db
+
+    for (const meta of agencyMetaRows) {
+      if (!meta.displayId) continue;
+      const clientRows = await db
         .select({
-          id: agencies.id,
-          displayId: agencies.displayId,
-          agencyName: agencies.agencyName,
-          assignedTo: agencies.assignedTo,
+          companyDisplayId: agencyClients.companyDisplayId,
+          companyType: agencyClients.companyType,
         })
-        .from(agencies)
-        .where(inArray(agencies.displayId, displayIdsToLoad));
+        .from(agencyClients)
+        .where(eq(agencyClients.agencyId, meta.id));
 
-      const totalsByAgency = new Map<string, { transactions: number; moneySpent: number }>();
-      for (const meta of agencyMetaRows) {
-        if (!meta.displayId) continue;
-        const clientRows = await db
-          .select({
-            companyDisplayId: agencyClients.companyDisplayId,
-            companyType: agencyClients.companyType,
-          })
-          .from(agencyClients)
-          .where(eq(agencyClients.agencyId, meta.id));
-
-        const orgIds = clientRows.filter((c) => c.companyType === "org").map((c) => c.companyDisplayId);
-        const bizIds = clientRows.filter((c) => c.companyType === "business").map((c) => c.companyDisplayId);
-        const soldCompanyFilters = [
-          and(eq(proposals.companyType, "agency"), eq(proposals.companyDisplayId, meta.displayId)),
-        ];
-        if (orgIds.length > 0) {
-          soldCompanyFilters.push(
-            and(eq(proposals.companyType, "org"), inArray(proposals.companyDisplayId, orgIds))
-          );
-        }
-        if (bizIds.length > 0) {
-          soldCompanyFilters.push(
-            and(eq(proposals.companyType, "business"), inArray(proposals.companyDisplayId, bizIds))
-          );
-        }
-
-        const [soldStats] = await db
-          .select({
-            transactions: sql<number>`count(*)::int`,
-            moneySpent: sql<string>`coalesce(sum(${proposals.amount}), 0)::text`,
-          })
-          .from(proposals)
-          .where(and(eq(proposals.status, "sold"), or(...soldCompanyFilters)));
-
-        const soldAgencyActivities = await db
-          .select({ proposalData: activities.proposalData })
-          .from(activities)
-          .where(
-            and(
-              eq(activities.companyType, "agency"),
-              eq(activities.companyDisplayId, meta.displayId),
-              eq(activities.actionType, "sold")
-            )
-          );
-        const activityTransactions = soldAgencyActivities.length;
-        const activityMoney = soldAgencyActivities.reduce((sum, row) => {
-          const pd = row.proposalData as { amount?: string | number } | null;
-          const amount = pd?.amount != null ? Number(pd.amount) : 0;
-          return sum + (Number.isFinite(amount) ? amount : 0);
-        }, 0);
-
-        const proposalTransactions = soldStats?.transactions ?? 0;
-        const proposalMoney = soldStats?.moneySpent != null ? Number(soldStats.moneySpent) : 0;
-        totalsByAgency.set(meta.displayId, {
-          transactions: Math.max(proposalTransactions, activityTransactions),
-          moneySpent: Math.max(proposalMoney, activityMoney),
-        });
+      const orgIds = clientRows.filter((c) => c.companyType === "org").map((c) => c.companyDisplayId);
+      const bizIds = clientRows.filter((c) => c.companyType === "business").map((c) => c.companyDisplayId);
+      const soldCompanyFilters = [
+        and(eq(proposals.companyType, "agency"), eq(proposals.companyDisplayId, meta.displayId)),
+      ];
+      if (orgIds.length > 0) {
+        soldCompanyFilters.push(
+          and(eq(proposals.companyType, "org"), inArray(proposals.companyDisplayId, orgIds))
+        );
+      }
+      if (bizIds.length > 0) {
+        soldCompanyFilters.push(
+          and(eq(proposals.companyType, "business"), inArray(proposals.companyDisplayId, bizIds))
+        );
       }
 
-      for (const row of list) {
-        if (row.companyType !== "agency") continue;
-        const totals = totalsByAgency.get(row.companyDisplayId);
-        if (!totals) continue;
-        row.transactions = totals.transactions;
-        row.moneySpent = totals.moneySpent;
+      const [soldStats] = await db
+        .select({
+          transactions: sql<number>`count(*)::int`,
+          moneySpent: sql<string>`coalesce(sum(${proposals.amount}), 0)::text`,
+        })
+        .from(proposals)
+        .where(and(eq(proposals.status, "sold"), or(...soldCompanyFilters)));
+
+      const soldAgencyActivities = await db
+        .select({ proposalData: activities.proposalData })
+        .from(activities)
+        .where(
+          and(
+            eq(activities.companyType, "agency"),
+            eq(activities.companyDisplayId, meta.displayId),
+            eq(activities.actionType, "sold")
+          )
+        );
+      const activityTransactions = soldAgencyActivities.length;
+      const activityMoney = soldAgencyActivities.reduce((sum, row) => {
+        const pd = row.proposalData as { amount?: string | number } | null;
+        const amount = pd?.amount != null ? Number(pd.amount) : 0;
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
+
+      const proposalTransactions = soldStats?.transactions ?? 0;
+      const proposalMoney = soldStats?.moneySpent != null ? Number(soldStats.moneySpent) : 0;
+      const transactions = Math.max(proposalTransactions, activityTransactions);
+      const moneySpent = Math.max(proposalMoney, activityMoney);
+      if (transactions < 1 && moneySpent <= 0) continue;
+
+      const existing = existingAgencyByDisplayId.get(meta.displayId);
+      if (existing) {
+        existing.transactions = transactions;
+        existing.moneySpent = moneySpent;
+      } else {
+        const key = `agency:${meta.displayId}`;
+        const last = lastActivityByCompany.get(key);
+        const contact = last?.contactId ? contactMap.get(last.contactId) : null;
+        const row = {
+          proposalId: `agency:${meta.displayId}`,
+          companyType: "agency",
+          companyDisplayId: meta.displayId,
+          companyName: meta.agencyName ?? meta.displayId,
+          moneySpent,
+          transactions,
+          dateLastSold: last?.createdAt ?? null,
+          lastActivityAt: last?.createdAt ?? null,
+          lastActivityType: last ? ACTION_LABELS[last.actionType] ?? last.actionType : null,
+          lastContactFirstName: contact?.firstName ?? null,
+          lastContactLastName: contact?.lastName ?? null,
+          assignedTo: meta.assignedTo ?? "",
+        };
+        list.push(row);
+        existingAgencyByDisplayId.set(meta.displayId, row);
       }
     }
 

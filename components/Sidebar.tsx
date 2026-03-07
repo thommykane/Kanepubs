@@ -152,14 +152,18 @@ export default function Sidebar() {
           </Link>
         ))}
 
-        <div style={{ height: "0.75rem" }} />
+        {isAdmin !== true && (
+          <>
+            <div style={{ height: "0.75rem" }} />
 
-        <div style={sectionBarStyle}>My Account</div>
-        {MY_ACCOUNT_LINKS.map(({ href, label }) => (
-          <Link key={href} href={href} style={linkStyle}>
-            {label}
-          </Link>
-        ))}
+            <div style={sectionBarStyle}>My Account</div>
+            {MY_ACCOUNT_LINKS.map(({ href, label }) => (
+              <Link key={href} href={href} style={linkStyle}>
+                {label}
+              </Link>
+            ))}
+          </>
+        )}
 
         {isAdmin === true && (
           <>

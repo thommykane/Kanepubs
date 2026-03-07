@@ -357,7 +357,7 @@ export default function AllBusinessesPage() {
           style={{ ...inputStyle, minWidth: "170px" }}
         >
           <option value="">Assigned to (all)</option>
-          <option value="__UNASSIGNED__">Admin / Unassigned</option>
+          <option value="__UNASSIGNED__">Unassigned</option>
           {users.map((u) => (
             <option key={u.id} value={u.username}>{u.username}</option>
           ))}
@@ -539,7 +539,9 @@ export default function AllBusinessesPage() {
                   )}
                   <td style={tdStyleCreated}>{formatCreated(b.createdAt)}</td>
                   <td style={tdStyleUsername}>{b.createdBy ?? "Admin"}</td>
-                  <td style={tdStyleUsername}>{b.assignedTo ?? "Admin"}</td>
+                  <td style={tdStyleUsername}>
+                    {b.assignedTo && b.assignedTo.toLowerCase() !== "admin" ? b.assignedTo : "Unassigned"}
+                  </td>
                   <td style={tdStyleName}>
                     {b.displayId ? (
                       <Link href={`/all-businesses/${b.displayId}`} style={{ color: "var(--gold-bright)", fontWeight: 700, textDecoration: "none" }}>

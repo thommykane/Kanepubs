@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
     });
 
     const filtered = assignedToQ === "__UNASSIGNED__"
-      ? leadAgencies.filter((a) => !a.assignedTo)
+      ? leadAgencies.filter((a) => !a.assignedTo || String(a.assignedTo).toLowerCase() === "admin")
       : assignedToQ
         ? leadAgencies.filter((a) => a.assignedTo === assignedToQ)
         : leadAgencies;

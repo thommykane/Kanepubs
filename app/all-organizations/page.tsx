@@ -407,7 +407,7 @@ export default function AllOrganizationsPage() {
           style={{ ...inputStyle, minWidth: "170px" }}
         >
           <option value="">Assigned to (all)</option>
-          <option value="__UNASSIGNED__">Admin / Unassigned</option>
+          <option value="__UNASSIGNED__">Unassigned</option>
           {users.map((u) => (
             <option key={u.id} value={u.username}>{u.username}</option>
           ))}
@@ -587,7 +587,9 @@ export default function AllOrganizationsPage() {
                   )}
                   <td style={tdStyleCreated}>{formatCreated(o.createdAt)}</td>
                   <td style={tdStyleUsername}>{o.createdBy ?? "Admin"}</td>
-                  <td style={tdStyleUsername}>{o.assignedTo ?? "Admin"}</td>
+                  <td style={tdStyleUsername}>
+                    {o.assignedTo && o.assignedTo.toLowerCase() !== "admin" ? o.assignedTo : "Unassigned"}
+                  </td>
                   <td style={tdStyleName}>
                     {o.displayId ? (
                       <Link href={`/all-organizations/${o.displayId}`} style={{ color: "var(--gold-bright)", fontWeight: 700, textDecoration: "none" }}>

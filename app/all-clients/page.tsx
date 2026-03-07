@@ -148,7 +148,7 @@ export default function AllClientsPage() {
     const rowAssigned = row.assignedTo ?? "";
     const byAssigned =
       searchAssignedTo === "__UNASSIGNED__"
-        ? rowAssigned.trim() === ""
+        ? rowAssigned.trim() === "" || rowAssigned.toLowerCase() === "admin"
         : searchAssignedTo
           ? rowAssigned === searchAssignedTo
           : true;
@@ -300,7 +300,7 @@ export default function AllClientsPage() {
           style={{ ...inputStyle, minWidth: "170px" }}
         >
           <option value="">Assigned to (all)</option>
-          <option value="__UNASSIGNED__">Admin / Unassigned</option>
+          <option value="__UNASSIGNED__">Unassigned</option>
           {users.map((u) => (
             <option key={u.id} value={u.username}>{u.username}</option>
           ))}
@@ -388,7 +388,9 @@ export default function AllClientsPage() {
                       {row.companyName}
                     </Link>
                   </td>
-                  <td style={tdStyle}>{row.assignedTo ?? "—"}</td>
+                  <td style={tdStyle}>
+                    {row.assignedTo && row.assignedTo.toLowerCase() !== "admin" ? row.assignedTo : "Unassigned"}
+                  </td>
                   <td style={tdStyle}>
                     ${row.moneySpent.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </td>

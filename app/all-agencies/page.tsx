@@ -163,7 +163,7 @@ export default function AllAgenciesPage() {
           style={{ ...inputStyle, minWidth: "170px" }}
         >
           <option value="">Assigned to (all)</option>
-          <option value="__UNASSIGNED__">Admin / Unassigned</option>
+          <option value="__UNASSIGNED__">Unassigned</option>
           {users.map((u) => (
             <option key={u.id} value={u.username}>{u.username}</option>
           ))}
@@ -216,7 +216,9 @@ export default function AllAgenciesPage() {
                   <td style={tdStyle}>{a.displayId ?? "—"}</td>
                   <td style={tdStyle}>{[a.city, a.state].filter(Boolean).join(", ") || "—"}</td>
                   <td style={tdStyle}>{a.phone ?? "—"}</td>
-                  <td style={tdStyle}>{a.assignedTo ?? "Admin"}</td>
+                  <td style={tdStyle}>
+                    {a.assignedTo && a.assignedTo.toLowerCase() !== "admin" ? a.assignedTo : "Unassigned"}
+                  </td>
                 </tr>
               ))}
             </tbody>
