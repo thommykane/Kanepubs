@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import LeadChecker from "@/components/LeadChecker";
 
 const BUSINESS_TYPES = [
   "Hotel",
@@ -153,6 +154,7 @@ function NewBusinessForm() {
 
   return (
     <main style={{ padding: "1.5rem", maxWidth: "560px" }}>
+      <LeadChecker />
       <h1 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>
         New Business
       </h1>
