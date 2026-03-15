@@ -12,18 +12,6 @@ type Match = {
   name: string;
 };
 
-function websiteCondition(
-  column: typeof organizations.website,
-  normalized: string | null,
-  raw: string
-) {
-  const searchValue = normalized ?? raw;
-  if (normalized && normalized !== raw) {
-    return or(eq(column, searchValue), eq(column, raw));
-  }
-  return eq(column, searchValue);
-}
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -36,12 +24,18 @@ export async function GET(req: NextRequest) {
     }
 
     const normalized = normalizeWebsiteUrl(raw);
+    const searchValue = normalized ?? raw;
+    const matchBoth = normalized && normalized !== raw;
     const matches: Match[] = [];
 
     const orgs = await db
       .select({ displayId: organizations.displayId, organizationName: organizations.organizationName })
       .from(organizations)
-      .where(websiteCondition(organizations.website, normalized, raw));
+      .where(
+        matchBoth
+          ? or(eq(organizations.website, searchValue), eq(organizations.website, raw))
+          : eq(organizations.website, searchValue)
+      );
     for (const row of orgs) {
       if (row.displayId) {
         matches.push({
@@ -55,7 +49,11 @@ export async function GET(req: NextRequest) {
     const bizs = await db
       .select({ displayId: businesses.displayId, businessName: businesses.businessName })
       .from(businesses)
-      .where(websiteCondition(businesses.website, normalized, raw));
+      .where(
+        matchBoth
+          ? or(eq(businesses.website, searchValue), eq(businesses.website, raw))
+          : eq(businesses.website, searchValue)
+      );
     for (const row of bizs) {
       if (row.displayId) {
         matches.push({
@@ -69,7 +67,11 @@ export async function GET(req: NextRequest) {
     const agys = await db
       .select({ displayId: agencies.displayId, agencyName: agencies.agencyName })
       .from(agencies)
-      .where(websiteCondition(agencies.website, normalized, raw));
+      .where(
+        matchBoth
+          ? or(eq(agencies.website, searchValue), eq(agencies.website, raw))
+          : eq(agencies.website, searchValue)
+      );
     for (const row of agys) {
       if (row.displayId) {
         matches.push({
