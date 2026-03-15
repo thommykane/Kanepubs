@@ -373,6 +373,21 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/** Parse All Clients row id: either a proposal UUID or synthetic "org:X" | "business:X" | "agency:X" */
+function parseClientId(id: string): { type: "proposal"; id: string } | { type: "company"; companyType: "org" | "business" | "agency"; displayId: string } | null {
+  const s = String(id).trim();
+  if (!s) return null;
+  if (s.includes(":")) {
+    const [prefix, ...rest] = s.split(":");
+    const displayId = rest.join(":").trim();
+    if (prefix === "org" && displayId) return { type: "company", companyType: "org", displayId };
+    if (prefix === "business" && displayId) return { type: "company", companyType: "business", displayId };
+    if (prefix === "agency" && displayId) return { type: "company", companyType: "agency", displayId };
+    return null;
+  }
+  return { type: "proposal", id: s };
+}
+
 export async function PATCH(req: NextRequest) {
   try {
     const current = await getCurrentUser(req);
@@ -388,11 +403,55 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    const assignTo = assignedTo.trim();
+    const proposalIdsOnly: string[] = [];
+    const companyKeys: { companyType: "org" | "business" | "agency"; displayId: string }[] = [];
+    const seenCompanyKey = new Set<string>();
+
     for (const id of proposalIds) {
-      const [p] = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
-      if (p && p.status === "sold") {
-        await db.update(proposals).set({ assignedTo: assignedTo.trim() }).where(eq(proposals.id, id));
+      const parsed = parseClientId(id);
+      if (!parsed) continue;
+      if (parsed.type === "proposal") {
+        proposalIdsOnly.push(parsed.id);
+      } else {
+        const key = `${parsed.companyType}:${parsed.displayId}`;
+        if (!seenCompanyKey.has(key)) {
+          seenCompanyKey.add(key);
+          companyKeys.push({ companyType: parsed.companyType, displayId: parsed.displayId });
+        }
       }
+    }
+
+    // 1) Update by real proposal IDs (batch)
+    if (proposalIdsOnly.length > 0) {
+      await db
+        .update(proposals)
+        .set({ assignedTo: assignTo })
+        .where(and(eq(proposals.status, "sold"), inArray(proposals.id, proposalIdsOnly)));
+    }
+
+    // 2) Update by company (synthetic ids): proposals + org/biz/agency + contacts
+    for (const { companyType, displayId } of companyKeys) {
+      await db
+        .update(proposals)
+        .set({ assignedTo: assignTo })
+        .where(
+          and(
+            eq(proposals.status, "sold"),
+            eq(proposals.companyType, companyType),
+            eq(proposals.companyDisplayId, displayId)
+          )
+        );
+
+      if (companyType === "org") {
+        await db.update(organizations).set({ assignedTo: assignTo }).where(eq(organizations.displayId, displayId));
+      } else if (companyType === "business") {
+        await db.update(businesses).set({ assignedTo: assignTo }).where(eq(businesses.displayId, displayId));
+      } else {
+        await db.update(agencies).set({ assignedTo: assignTo }).where(eq(agencies.displayId, displayId));
+      }
+
+      await db.update(contacts).set({ assignedTo: assignTo }).where(eq(contacts.businessId, displayId));
     }
 
     return NextResponse.json({ success: true });
