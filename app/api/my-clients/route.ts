@@ -422,12 +422,37 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // 1) Update by real proposal IDs (batch)
+    // 1) Update by real proposal IDs (batch), then update org/biz/agency so My Agencies / My Orgs / My Businesses show the assign
     if (proposalIdsOnly.length > 0) {
       await db
         .update(proposals)
         .set({ assignedTo: assignTo })
         .where(and(eq(proposals.status, "sold"), inArray(proposals.id, proposalIdsOnly)));
+
+      const rows = await db
+        .select({ companyType: proposals.companyType, companyDisplayId: proposals.companyDisplayId })
+        .from(proposals)
+        .where(inArray(proposals.id, proposalIdsOnly));
+      const seenKey = new Set<string>();
+      for (const r of rows) {
+        const type = (r.companyType ?? "").trim().toLowerCase();
+        const displayId = (r.companyDisplayId ?? "").trim();
+        if (!displayId) continue;
+        const companyType: "org" | "business" | "agency" =
+          type === "org" ? "org" : type === "agency" ? "agency" : "business";
+        const key = `${companyType}:${displayId}`;
+        if (seenKey.has(key)) continue;
+        seenKey.add(key);
+
+        if (companyType === "org") {
+          await db.update(organizations).set({ assignedTo: assignTo }).where(eq(organizations.displayId, displayId));
+        } else if (companyType === "business") {
+          await db.update(businesses).set({ assignedTo: assignTo }).where(eq(businesses.displayId, displayId));
+        } else {
+          await db.update(agencies).set({ assignedTo: assignTo }).where(eq(agencies.displayId, displayId));
+        }
+        await db.update(contacts).set({ assignedTo: assignTo }).where(eq(contacts.businessId, displayId));
+      }
     }
 
     // 2) Update by company (synthetic ids): proposals + org/biz/agency + contacts
