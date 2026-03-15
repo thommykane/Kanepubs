@@ -63,6 +63,7 @@ export default function SoldPage() {
   const [editNotes, setEditNotes] = useState("");
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>(""); // "" = current year Jan–Mar only; "2025" etc. = that full year Dec→Jan
+  const [selectedSalesAgent, setSelectedSalesAgent] = useState<string>(""); // "" = all agents
 
   const fetchList = useCallback(async () => {
     const res = await fetch("/api/proposals?status=sold", { cache: "no-store" });
@@ -188,7 +189,7 @@ export default function SoldPage() {
       }
     };
     const currentYear = new Date().getFullYear();
-    const filtered =
+    let filtered =
       selectedYear === ""
         ? list.filter((row) => {
             const ym = getYearMonth(row);
@@ -198,6 +199,9 @@ export default function SoldPage() {
             const ym = getYearMonth(row);
             return ym !== null && ym.y === parseInt(selectedYear, 10);
           });
+    if (selectedSalesAgent) {
+      filtered = filtered.filter((row) => row.proposal.salesAgent === selectedSalesAgent);
+    }
 
     const map = new Map<string, Row[]>();
     for (const row of filtered) {
@@ -231,7 +235,7 @@ export default function SoldPage() {
       return bm - am;
     });
     return keys.map((key) => ({ key, rows: map.get(key)! }));
-  }, [list, selectedYear]);
+  }, [list, selectedYear, selectedSalesAgent]);
 
   const formatMonthYear = (key: string) => {
     if (key === "Unknown") return key;
@@ -303,6 +307,29 @@ export default function SoldPage() {
                   ))}
                 </select>
               </label>
+              <label style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>
+                Sales agent:
+                <select
+                  value={selectedSalesAgent}
+                  onChange={(e) => setSelectedSalesAgent(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLSelectElement).blur()}
+                  style={{
+                    marginLeft: "0.5rem",
+                    padding: "0.4rem 0.6rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    fontSize: "0.9rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">All agents</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.username}>{u.username}</option>
+                  ))}
+                </select>
+              </label>
             </div>
           </>
         )}
@@ -313,7 +340,11 @@ export default function SoldPage() {
         <p style={{ color: "var(--gold-dim)" }}>No sold deals yet.</p>
       ) : groupedByMonthYear.length === 0 ? (
         <p style={{ color: "var(--gold-dim)" }}>
-          {selectedYear === "" ? `No sales this year (${CURRENT_YEAR}).` : `No sales in ${selectedYear}.`}
+          {selectedSalesAgent
+            ? `No sales for ${selectedSalesAgent}${selectedYear === "" ? ` this year (${CURRENT_YEAR}).` : ` in ${selectedYear}.`}`
+            : selectedYear === ""
+              ? `No sales this year (${CURRENT_YEAR}).`
+              : `No sales in ${selectedYear}.`}
         </p>
       ) : (
         groupedByMonthYear.map(({ key, rows }) => (
