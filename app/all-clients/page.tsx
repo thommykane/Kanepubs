@@ -78,14 +78,6 @@ export default function AllClientsPage() {
     });
   };
 
-  const totalPages = Math.max(1, Math.ceil(filteredList.length / PER_PAGE));
-  const start = (currentPage - 1) * PER_PAGE;
-  const paginatedList = filteredList.slice(start, start + PER_PAGE);
-
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(1);
-  }, [currentPage, totalPages, filteredList.length]);
-
   const selectAll = () => {
     const visibleIds = paginatedList.map((r) => r.proposalId);
     const visibleSelected = visibleIds.filter((id) => selectedIds.has(id)).length;
