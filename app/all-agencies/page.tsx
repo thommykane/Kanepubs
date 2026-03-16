@@ -26,6 +26,16 @@ export default function AllAgenciesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [assignToUsername, setAssignToUsername] = useState("");
   const [assigning, setAssigning] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const PER_PAGE = 25;
+  const totalPages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  const start = (currentPage - 1) * PER_PAGE;
+  const paginatedList = list.slice(start, start + PER_PAGE);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(1);
+  }, [currentPage, totalPages]);
 
   const fetchAgencies = useCallback(async () => {
     const params = new URLSearchParams();
@@ -56,8 +66,13 @@ export default function AllAgenciesPage() {
   };
 
   const selectAll = () => {
-    if (selectedIds.size === list.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(list.map((a) => a.id)));
+    const visibleIds = paginatedList.map((a) => a.id);
+    const visibleSelected = visibleIds.filter((id) => selectedIds.has(id)).length;
+    if (visibleIds.length > 0 && visibleSelected === visibleIds.length) {
+      setSelectedIds((prev) => { const next = new Set(prev); visibleIds.forEach((id) => next.delete(id)); return next; });
+    } else {
+      setSelectedIds((prev) => { const next = new Set(prev); visibleIds.forEach((id) => next.add(id)); return next; });
+    }
   };
 
   const handleBulkAssign = async () => {
@@ -196,7 +211,7 @@ export default function AllAgenciesPage() {
               </tr>
             </thead>
             <tbody>
-              {list.map((a) => (
+              {paginatedList.map((a) => (
                 <tr key={a.id}>
                   {selectionColumnOpen && (
                     <td style={tdStyle}>
@@ -223,6 +238,20 @@ export default function AllAgenciesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {!loading && list.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", padding: "0.5rem 0" }}>
+          <span style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>
+            Showing {start + 1}–{Math.min(start + PER_PAGE, list.length)} of {list.length}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", flexWrap: "wrap" }}>
+            <button type="button" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)} style={{ padding: "0.35rem 0.6rem", fontSize: "0.8rem", background: "var(--glass)", border: "1px solid var(--glass-border)", borderRadius: "6px", color: "var(--gold-bright)", cursor: currentPage <= 1 ? "not-allowed" : "pointer", opacity: currentPage <= 1 ? 0.5 : 1 }}>Prev</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button key={p} type="button" onClick={() => setCurrentPage(p)} style={{ padding: "0.35rem 0.6rem", minWidth: "2rem", fontSize: "0.8rem", background: p === currentPage ? "var(--gold)" : "var(--glass)", border: "1px solid var(--glass-border)", borderRadius: "6px", color: p === currentPage ? "var(--bg)" : "var(--gold-bright)", cursor: "pointer" }}>{p}</button>
+            ))}
+            <button type="button" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)} style={{ padding: "0.35rem 0.6rem", fontSize: "0.8rem", background: "var(--glass)", border: "1px solid var(--glass-border)", borderRadius: "6px", color: "var(--gold-bright)", cursor: currentPage >= totalPages ? "not-allowed" : "pointer", opacity: currentPage >= totalPages ? 0.5 : 1 }}>Next</button>
+          </div>
         </div>
       )}
     </div>
