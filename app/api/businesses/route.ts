@@ -98,12 +98,8 @@ export async function GET(req: NextRequest) {
       .from(businesses)
       .where(and(...conditions))
       .orderBy(desc(businesses.createdAt));
-    const leadList = filtered.filter((b) => {
-      const tx = b.transactions ?? 0;
-      const money = b.moneySpent != null ? Number(b.moneySpent) : 0;
-      return tx < 1 && money <= 0;
-    });
-    return NextResponse.json(leadList);
+    // Every lead that has never been in SOLD (already excluded by notSoldFilter). Show all, regardless of assignedTo.
+    return NextResponse.json(filtered);
   } catch (err) {
     console.error("[api/businesses GET]", err);
     return NextResponse.json([], { status: 200 });

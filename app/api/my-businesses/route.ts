@@ -62,10 +62,8 @@ export async function GET(req: NextRequest) {
       .where(eq(businesses.assignedTo, username))
       .orderBy(desc(businesses.createdAt));
 
+    // Only exclude businesses that are in SOLD (they move to My Clients). Show all other leads assigned to this user.
     const bizListFiltered = bizList.filter((b) => {
-      const tx = b.transactions ?? 0;
-      const money = b.moneySpent != null ? Number(b.moneySpent) : 0;
-      if (tx >= 1 || money > 0) return false;
       if (b.displayId && soldIds.includes(b.displayId)) return false;
       return true;
     });

@@ -62,10 +62,8 @@ export async function GET(req: NextRequest) {
       .where(eq(organizations.assignedTo, username))
       .orderBy(desc(organizations.createdAt));
 
+    // Only exclude orgs that are in SOLD (they move to My Clients). Show all other leads assigned to this user.
     const orgsFiltered = orgs.filter((o) => {
-      const tx = o.transactions ?? 0;
-      const money = o.moneySpent != null ? Number(o.moneySpent) : 0;
-      if (tx >= 1 || money > 0) return false;
       if (o.displayId && soldIds.includes(o.displayId)) return false;
       return true;
     });
