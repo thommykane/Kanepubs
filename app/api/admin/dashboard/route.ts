@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       getProposalRowsByStatus("sold"),
       db.select().from(proposals),
       db.select().from(activities),
-      db.select({ username: users.username }).from(users),
+      db.select({ username: users.username, isAdmin: users.isAdmin }).from(users),
     ]);
 
     /** Same sold deals as GET /api/proposals?status=sold (shown on /sold). */
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
     const pctProposalsToIo = totalProposals > 0 ? (ioOrSold.length / totalProposals) * 100 : 0;
     const pctIoToSold = ioOrSold.length > 0 ? (sold.length / ioOrSold.length) * 100 : 0;
 
-    const agents = allUsers.map((u) => u.username);
+    const agents = allUsers.filter((u) => !(u.isAdmin ?? false)).map((u) => u.username);
     const agentsData = agents.map((username) => {
       const agentProposals = allProposals.filter((p) => p.salesAgent === username);
       const agentSold = sold.filter((p) => p.salesAgent === username);

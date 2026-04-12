@@ -155,8 +155,6 @@ export default function AdminDashboardPage() {
           <thead>
             <tr>
               <th style={thStyle}>Agent</th>
-              <th style={thStyle}>Total Activity</th>
-              <th style={thStyle}>AVG Daily Activity</th>
               <th style={thStyle}>Sales #</th>
               <th style={thStyle}>Sales ($)</th>
               <th style={thStyle}>Total Proposals</th>
@@ -164,14 +162,14 @@ export default function AdminDashboardPage() {
               <th style={thStyle}>% Proposals → I/O</th>
               <th style={thStyle}>% I/O → SOLD</th>
               <th style={thStyle}>Total Commissions</th>
+              <th style={thStyle}>Total Activity</th>
+              <th style={thStyle}>AVG Daily Activity</th>
             </tr>
           </thead>
           <tbody>
             {data.agentsData.map((a) => (
               <tr key={a.username}>
                 <td style={tdStyle}>{a.username}</td>
-                <td style={tdStyle}>{fmtNum(a.totalActivity)}</td>
-                <td style={tdStyle}>{fmtAvg(a.avgDailyActivity)}</td>
                 <td style={tdStyle}>{fmtNum(a.salesCount)}</td>
                 <td style={tdStyle}>{fmtDollars(a.salesDollars)}</td>
                 <td style={tdStyle}>{fmtNum(a.totalProposals)}</td>
@@ -179,6 +177,8 @@ export default function AdminDashboardPage() {
                 <td style={tdStyle}>{fmtPct(a.pctProposalsToIo)}</td>
                 <td style={tdStyle}>{fmtPct(a.pctIoToSold)}</td>
                 <td style={tdStyle}>{fmtDollars(a.totalCommissions)}</td>
+                <td style={tdStyle}>{fmtNum(a.totalActivity)}</td>
+                <td style={tdStyle}>{fmtAvg(a.avgDailyActivity)}</td>
               </tr>
             ))}
           </tbody>
