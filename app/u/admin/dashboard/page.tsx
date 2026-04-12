@@ -29,13 +29,15 @@ type AgentRow = {
 };
 
 type DashboardData = {
+  currentYear: number;
   totalSalesCount: number;
   totalSalesDollars: number;
   totalDealsYTD: number;
   totalRevenueYTD: number;
   dealsByYear: Record<number, { count: number; dollars: number }>;
-  pctProposalsToIo2026: number;
-  pctIoToSold2026: number;
+  dealsByYearList?: { year: number; count: number; dollars: number }[];
+  pctProposalsToIoThisYear: number;
+  pctIoToSoldThisYear: number;
   totalProposals: number;
   pctProposalsToIo: number;
   pctIoToSold: number;
@@ -95,7 +97,7 @@ export default function AdminDashboardPage() {
           if (!cancelled) setForbidden(true);
           return;
         }
-        const res = await fetch("/api/admin/dashboard");
+        const res = await fetch("/api/admin/dashboard", { cache: "no-store" });
         if (res.status === 403) {
           if (!cancelled) setForbidden(true);
           return;
@@ -135,17 +137,16 @@ export default function AdminDashboardPage() {
         <p style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}><strong>Total Sales Revenue:</strong> {fmtDollars(data.totalSalesDollars)}</p>
         <p style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}><strong>Total Deals YTD:</strong> {fmtNum(data.totalDealsYTD ?? 0)}</p>
         <p style={{ color: "var(--gold-bright)", marginBottom: "0.5rem" }}><strong>Total Revenue YTD:</strong> {fmtDollars(data.totalRevenueYTD ?? 0)}</p>
-        {([2025, 2024, 2023, 2022, 2021] as const).map((y) => {
-          const row = data.dealsByYear?.[y] ?? { count: 0, dollars: 0 };
-          return (
-            <p key={y} style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}>
-              <strong>Total Deals {y}:</strong> {fmtNum(row.count)} &nbsp; <strong>Total Revenue {y}:</strong> {fmtDollars(row.dollars)}
-            </p>
-          );
-        })}
-        <p style={{ color: "var(--gold-dim)", fontSize: "0.9rem", marginTop: "0.75rem" }}><strong>Conversions (2026 only)</strong></p>
-        <p style={{ color: "var(--gold-bright)" }}>Total % of proposals converted to sent I/O&apos;s: {fmtPct(data.pctProposalsToIo2026 ?? 0)}</p>
-        <p style={{ color: "var(--gold-bright)" }}>Total % of I/O&apos;s converted to SOLD: {fmtPct(data.pctIoToSold2026 ?? 0)}</p>
+        {(data.dealsByYearList ?? []).map(({ year, count, dollars }) => (
+          <p key={year} style={{ color: "var(--gold-bright)", marginBottom: "0.25rem" }}>
+            <strong>Total Deals {year}:</strong> {fmtNum(count)} &nbsp; <strong>Total Revenue {year}:</strong> {fmtDollars(dollars)}
+          </p>
+        ))}
+        <p style={{ color: "var(--gold-dim)", fontSize: "0.9rem", marginTop: "0.75rem" }}>
+          <strong>Conversions ({data.currentYear ?? new Date().getFullYear()} only)</strong>
+        </p>
+        <p style={{ color: "var(--gold-bright)" }}>Total % of proposals converted to sent I/O&apos;s: {fmtPct(data.pctProposalsToIoThisYear ?? 0)}</p>
+        <p style={{ color: "var(--gold-bright)" }}>Total % of I/O&apos;s converted to SOLD: {fmtPct(data.pctIoToSoldThisYear ?? 0)}</p>
       </div>
 
       <div style={sectionStyle}>

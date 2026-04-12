@@ -8,7 +8,12 @@ import {
   sessions,
   businesses,
   organizations,
+  agencies,
 } from "@/lib/db/schema";
+import { getProposalRowsByStatus } from "@/lib/proposal-rows";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const ORGANIZATION_TYPES = [
   "CVB (City)", "CVB (County)", "CVB (State)", "DMO (City)", "DMO (County)", "DMO (State)",
@@ -41,6 +46,11 @@ async function getCurrentUser(req: NextRequest): Promise<{ username: string; isA
   return { username: user.username, isAdmin: user.isAdmin ?? false };
 }
 
+function getSoldDate(p: { statusUpdatedAt: Date | null; createdAt: Date }) {
+  const d = p.statusUpdatedAt ?? p.createdAt;
+  return d ? new Date(d) : null;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const currentUser = await getCurrentUser(req);
@@ -48,49 +58,53 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Admin only" }, { status: 403 });
     }
 
-    const allProposals = await db.select().from(proposals);
-    const allActivities = await db.select().from(activities);
-    const allUsers = await db.select({ username: users.username }).from(users);
+    const currentYear = new Date().getFullYear();
 
-    const sold = allProposals.filter((p) => p.status === "sold");
+    const [soldRows, allProposals, allActivities, allUsers] = await Promise.all([
+      getProposalRowsByStatus("sold"),
+      db.select().from(proposals),
+      db.select().from(activities),
+      db.select({ username: users.username }).from(users),
+    ]);
+
+    /** Same sold deals as GET /api/proposals?status=sold (shown on /sold). */
+    const sold = soldRows.map((r) => r.proposal);
+
     const totalSalesCount = sold.length;
     const totalSalesDollars = sold.reduce((sum, p) => sum + (p.amount != null ? Number(p.amount) : 0), 0);
 
-    function getSoldDate(p: { statusUpdatedAt: Date | null; createdAt: Date }) {
-      const d = p.statusUpdatedAt ?? p.createdAt;
-      return d ? new Date(d) : null;
-    }
-
-    const YEAR_LIST = [2025, 2024, 2023, 2022, 2021] as const;
     const dealsByYear: Record<number, { count: number; dollars: number }> = {};
-    for (const y of YEAR_LIST) dealsByYear[y] = { count: 0, dollars: 0 };
     for (const p of sold) {
       const d = getSoldDate(p);
       if (!d) continue;
       const y = d.getFullYear();
-      if (y in dealsByYear) {
-        dealsByYear[y].count += 1;
-        dealsByYear[y].dollars += p.amount != null ? Number(p.amount) : 0;
-      }
+      if (!dealsByYear[y]) dealsByYear[y] = { count: 0, dollars: 0 };
+      dealsByYear[y].count += 1;
+      dealsByYear[y].dollars += p.amount != null ? Number(p.amount) : 0;
     }
 
-    const CURRENT_YEAR = 2026;
+    const dealsByYearList = Object.entries(dealsByYear)
+      .map(([year, v]) => ({ year: Number(year), count: v.count, dollars: v.dollars }))
+      .sort((a, b) => b.year - a.year);
+
     const soldYTD = sold.filter((p) => {
       const d = getSoldDate(p);
-      return d && d.getFullYear() === CURRENT_YEAR;
+      return d && d.getFullYear() === currentYear;
     });
     const totalDealsYTD = soldYTD.length;
     const totalRevenueYTD = soldYTD.reduce((sum, p) => sum + (p.amount != null ? Number(p.amount) : 0), 0);
 
-    const proposals2026 = allProposals.filter((p) => {
+    const proposalsThisYear = allProposals.filter((p) => {
       const d = p.createdAt ? new Date(p.createdAt) : null;
-      return d && d.getFullYear() === CURRENT_YEAR;
+      return d && d.getFullYear() === currentYear;
     });
-    const ioOrSold2026 = proposals2026.filter((p) => p.status === "io" || p.status === "sold");
-    const sold2026 = proposals2026.filter((p) => p.status === "sold");
-    const totalProposals2026 = proposals2026.length;
-    const pctProposalsToIo2026 = totalProposals2026 > 0 ? (ioOrSold2026.length / totalProposals2026) * 100 : 0;
-    const pctIoToSold2026 = ioOrSold2026.length > 0 ? (sold2026.length / ioOrSold2026.length) * 100 : 0;
+    const ioOrSoldThisYear = proposalsThisYear.filter((p) => p.status === "io" || p.status === "sold");
+    const soldThisYearInPipeline = proposalsThisYear.filter((p) => p.status === "sold");
+    const totalProposalsThisYear = proposalsThisYear.length;
+    const pctProposalsToIoThisYear =
+      totalProposalsThisYear > 0 ? (ioOrSoldThisYear.length / totalProposalsThisYear) * 100 : 0;
+    const pctIoToSoldThisYear =
+      ioOrSoldThisYear.length > 0 ? (soldThisYearInPipeline.length / ioOrSoldThisYear.length) * 100 : 0;
 
     const totalProposals = allProposals.length;
     const ioOrSold = allProposals.filter((p) => p.status === "io" || p.status === "sold");
@@ -100,7 +114,7 @@ export async function GET(req: NextRequest) {
     const agents = allUsers.map((u) => u.username);
     const agentsData = agents.map((username) => {
       const agentProposals = allProposals.filter((p) => p.salesAgent === username);
-      const agentSold = agentProposals.filter((p) => p.status === "sold");
+      const agentSold = sold.filter((p) => p.salesAgent === username);
       const agentIoOrSold = agentProposals.filter((p) => p.status === "io" || p.status === "sold");
       const agentActivities = allActivities.filter((a) => a.username === username);
       const agentActivityCount = agentActivities.length;
@@ -147,7 +161,10 @@ export async function GET(req: NextRequest) {
     const agencySalesCount = salesFromAgency.length;
     const agencySalesDollars = salesFromAgency.reduce((s, p) => s + (p.amount != null ? Number(p.amount) : 0), 0);
 
-    const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const MONTH_NAMES = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
     const dealsByMonth: { month: string; count: number; pctOfAll: number }[] = [];
     for (let m = 0; m < 12; m++) {
       const count = sold.filter((p) => {
@@ -158,8 +175,10 @@ export async function GET(req: NextRequest) {
       dealsByMonth.push({ month: MONTH_NAMES[m], count, pctOfAll });
     }
 
-    const orgRows = await db.select({ displayId: organizations.displayId, organizationType: organizations.organizationType }).from(organizations);
-    const bizRows = await db.select({ displayId: businesses.displayId, businessType: businesses.businessType }).from(businesses);
+    const [orgRows, bizRows] = await Promise.all([
+      db.select({ displayId: organizations.displayId, organizationType: organizations.organizationType }).from(organizations),
+      db.select({ displayId: businesses.displayId, businessType: businesses.businessType }).from(businesses),
+    ]);
     const orgByDisplay = new Map(orgRows.map((r) => [r.displayId, r.organizationType]));
     const bizByDisplay = new Map(bizRows.map((r) => [r.displayId, r.businessType]));
 
@@ -178,16 +197,21 @@ export async function GET(req: NextRequest) {
       salesByBizType[t].dollars += p.amount != null ? Number(p.amount) : 0;
     }
 
-    const orgStateRows = await db.select({ displayId: organizations.displayId, state: organizations.state }).from(organizations);
-    const bizStateRows = await db.select({ displayId: businesses.displayId, state: businesses.state }).from(businesses);
+    const [orgStateRows, bizStateRows, agencyStateRows] = await Promise.all([
+      db.select({ displayId: organizations.displayId, state: organizations.state }).from(organizations),
+      db.select({ displayId: businesses.displayId, state: businesses.state }).from(businesses),
+      db.select({ displayId: agencies.displayId, state: agencies.state }).from(agencies),
+    ]);
     const stateByOrg = new Map(orgStateRows.map((r) => [r.displayId, r.state]));
     const stateByBiz = new Map(bizStateRows.map((r) => [r.displayId, r.state]));
+    const stateByAgency = new Map(agencyStateRows.map((r) => [r.displayId, r.state]));
 
     const salesByState: Record<string, { count: number; dollars: number }> = {};
     for (const p of sold) {
-      const state = p.companyType === "org"
-        ? stateByOrg.get(p.companyDisplayId) ?? "—"
-        : stateByBiz.get(p.companyDisplayId) ?? "—";
+      let state: string;
+      if (p.companyType === "org") state = stateByOrg.get(p.companyDisplayId) ?? "—";
+      else if (p.companyType === "agency") state = stateByAgency.get(p.companyDisplayId) ?? "—";
+      else state = stateByBiz.get(p.companyDisplayId) ?? "—";
       if (!salesByState[state]) salesByState[state] = { count: 0, dollars: 0 };
       salesByState[state].count += 1;
       salesByState[state].dollars += p.amount != null ? Number(p.amount) : 0;
@@ -196,13 +220,15 @@ export async function GET(req: NextRequest) {
     const stateList = [...new Set([...Object.keys(salesByState).filter((s) => s && s !== "—"), ...US_STATES])].sort();
 
     return NextResponse.json({
+      currentYear,
       totalSalesCount,
       totalSalesDollars,
       totalDealsYTD,
       totalRevenueYTD,
       dealsByYear,
-      pctProposalsToIo2026,
-      pctIoToSold2026,
+      dealsByYearList,
+      pctProposalsToIoThisYear,
+      pctIoToSoldThisYear,
       totalProposals,
       pctProposalsToIo,
       pctIoToSold,
