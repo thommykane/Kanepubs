@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { agencies, agencyClients, activities, businesses, contacts, organizations, sessions, users, proposals } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
 import { getNextAgencyDisplayId } from "@/lib/next-display-id";
+import { logCreationActivity } from "@/lib/log-activity";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -46,11 +47,15 @@ export async function GET(req: NextRequest) {
         displayId: agencies.displayId,
         agencyName: agencies.agencyName,
         address: agencies.address,
+        addressLine2: agencies.addressLine2,
         city: agencies.city,
         state: agencies.state,
         zipCode: agencies.zipCode,
         phone: agencies.phone,
         website: agencies.website,
+        agencyType: agencies.agencyType,
+        tags: agencies.tags,
+        createdBy: agencies.createdBy,
         assignedTo: agencies.assignedTo,
         transactions: agencies.transactions,
         moneySpent: agencies.moneySpent,
@@ -254,6 +259,13 @@ export async function POST(req: NextRequest) {
         .set({ assignedTo: username })
         .where(eq(contacts.businessId, companyDisplayId));
     }
+
+    await logCreationActivity({
+      companyType: "agency",
+      companyDisplayId: displayId,
+      actionType: "agency_created",
+      username,
+    });
 
     return NextResponse.json({ success: true, id: agencyId, displayId });
   } catch (err) {

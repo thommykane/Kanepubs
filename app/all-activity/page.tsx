@@ -15,13 +15,17 @@ const ACTION_STYLES: Record<string, { label: string; style: React.CSSProperties 
   sent_io: { label: "Sent I/O", style: { color: "#00bcd4", fontWeight: 700 } },
   rejected_io: { label: "Rejected I/O", style: { color: "#e57373", fontWeight: 700 } },
   sold: { label: "SOLD", style: { color: "#39ff14", fontWeight: 700, fontSize: "1.1em" } },
+  org_created: { label: "Organization added", style: { color: "#81c784", fontWeight: 700 } },
+  business_created: { label: "Business added", style: { color: "#81c784", fontWeight: 700 } },
+  agency_created: { label: "Agency added", style: { color: "#81c784", fontWeight: 700 } },
+  contact_added: { label: "Contact added", style: { color: "#aed581", fontWeight: 700 } },
 };
 
 type Activity = {
   id: string;
   companyType: string;
   companyDisplayId: string;
-  contactId: string;
+  contactId: string | null;
   username: string;
   actionType: string;
   notes: string | null;
@@ -32,6 +36,7 @@ type Activity = {
   contactLastName?: string | null;
   businessName?: string | null;
   organizationName?: string | null;
+  agencyName?: string | null;
 };
 
 const POLL_INTERVAL_MS = 4000;
@@ -112,11 +117,12 @@ export default function AllActivityPage() {
   };
 
   const companyName = (a: Activity) =>
-    a.businessName ?? a.organizationName ?? a.companyDisplayId;
-  const companyHref = (a: Activity) =>
-    a.companyType === "org"
-      ? `/all-organizations/${a.companyDisplayId}`
-      : `/all-businesses/${a.companyDisplayId}`;
+    a.agencyName ?? a.businessName ?? a.organizationName ?? a.companyDisplayId;
+  const companyHref = (a: Activity) => {
+    if (a.companyType === "agency") return `/all-agencies/${a.companyDisplayId}`;
+    if (a.companyType === "org") return `/all-organizations/${a.companyDisplayId}`;
+    return `/all-businesses/${a.companyDisplayId}`;
+  };
 
   const handlePurgeActivity = async () => {
     setPurging(true);
@@ -278,7 +284,11 @@ export default function AllActivityPage() {
                     <div style={{ color: "var(--gold-dim)", marginTop: "2px" }}>{a.notes}</div>
                   )}
                   <div style={{ color: "var(--gold-dim)", marginTop: "4px" }}>
-                    {[a.contactFirstName, a.contactLastName].filter(Boolean).join(" ") || "Contact"} · {a.username} · {formatDate(a.createdAt)}
+                    {["org_created", "business_created", "agency_created"].includes(a.actionType)
+                      ? "—"
+                      : [a.contactFirstName, a.contactLastName].filter(Boolean).join(" ") || "Contact"}
+                    {" · "}
+                    {a.username} · {formatDate(a.createdAt)}
                   </div>
                 </li>
               );

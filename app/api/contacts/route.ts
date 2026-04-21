@@ -3,6 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { contacts, businesses, organizations, agencies, sessions, users } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
+import { inferCompanyTypeFromDisplayId, logCreationActivity } from "@/lib/log-activity";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -100,6 +101,9 @@ export async function POST(req: NextRequest) {
 
     const id = uuid();
     const username = await getCurrentUsername(req);
+    const businessIdVal =
+      businessId != null && String(businessId).trim() !== "" ? String(businessId).trim() : null;
+
     await db.insert(contacts).values({
       id,
       firstName: firstName != null ? String(firstName).trim() : null,
@@ -108,9 +112,19 @@ export async function POST(req: NextRequest) {
       officeNumber: officeNumber != null ? String(officeNumber).trim() : null,
       cellNumber: cellNumber != null ? String(cellNumber).trim() : null,
       email: email != null ? String(email).trim() : null,
-      businessId: businessId != null && String(businessId).trim() !== "" ? String(businessId).trim() : null,
+      businessId: businessIdVal,
       assignedTo: username,
     });
+
+    if (businessIdVal) {
+      await logCreationActivity({
+        companyType: inferCompanyTypeFromDisplayId(businessIdVal),
+        companyDisplayId: businessIdVal,
+        actionType: "contact_added",
+        username,
+        contactId: id,
+      });
+    }
 
     return NextResponse.json({ success: true, id });
   } catch (err) {

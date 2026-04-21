@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { contacts, sessions, users, organizations, businesses } from "@/lib/db/schema";
+import { contacts, sessions, users, organizations, businesses, agencies } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
+import { inferCompanyTypeFromDisplayId, logCreationActivity } from "@/lib/log-activity";
+
+async function getCurrentUsername(req: NextRequest): Promise<string> {
+  const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
+  if (!sessionId) return "Admin";
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  if (!session || new Date(session.expiresAt) < new Date()) return "Admin";
+  const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+  return user?.username ?? "Admin";
+}
 
 async function requireAdmin(req: NextRequest): Promise<boolean> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -98,6 +108,7 @@ export async function POST(req: NextRequest) {
     const created: { id: string; firstName: string; lastName: string; businessId: string }[] = [];
     const errors: { row: number; message: string }[] = [];
     const skipped: { row: number; reason: string }[] = [];
+    const username = await getCurrentUsername(req);
 
     for (let i = 0; i < rawRows.length; i++) {
       const row = mapRow(rawRows[i]);
@@ -134,8 +145,13 @@ export async function POST(req: NextRequest) {
         .from(businesses)
         .where(eq(businesses.displayId, businessId))
         .limit(1);
-      if (!orgRow && !bizRow) {
-        errors.push({ row: rowNum, message: `No organization or business found with ID: ${businessId}` });
+      const [agencyRow] = await db
+        .select({ displayId: agencies.displayId })
+        .from(agencies)
+        .where(eq(agencies.displayId, businessId))
+        .limit(1);
+      if (!orgRow && !bizRow && !agencyRow) {
+        errors.push({ row: rowNum, message: `No organization, business, or agency found with ID: ${businessId}` });
         continue;
       }
 
@@ -149,7 +165,15 @@ export async function POST(req: NextRequest) {
         cellNumber: row.cellNumber ? String(row.cellNumber).trim() : null,
         email: String(row.email).trim() || null,
         businessId,
-        assignedTo: "Admin",
+        assignedTo: username,
+      });
+
+      await logCreationActivity({
+        companyType: inferCompanyTypeFromDisplayId(businessId),
+        companyDisplayId: businessId,
+        actionType: "contact_added",
+        username,
+        contactId: id,
       });
 
       created.push({

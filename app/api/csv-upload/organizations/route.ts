@@ -6,6 +6,16 @@ import { v4 as uuid } from "uuid";
 import { getNextDisplayId } from "@/lib/next-display-id";
 import { getTimezoneFromAddress } from "@/lib/timezone-from-address";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
+import { logCreationActivity } from "@/lib/log-activity";
+
+async function getCurrentUsername(req: NextRequest): Promise<string> {
+  const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
+  if (!sessionId) return "Admin";
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  if (!session || new Date(session.expiresAt) < new Date()) return "Admin";
+  const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+  return user?.username ?? "Admin";
+}
 
 async function requireAdmin(req: NextRequest): Promise<boolean> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -123,6 +133,7 @@ export async function POST(req: NextRequest) {
     const required = ["organizationName", "address", "city", "state", "zipCode", "county", "phone", "website", "organizationType"];
     const created: { displayId: string; organizationName: string }[] = [];
     const errors: { row: number; message: string }[] = [];
+    const username = await getCurrentUsername(req);
 
     for (let i = 0; i < rawRows.length; i++) {
       const row = mapRow(rawRows[i]);
@@ -179,8 +190,15 @@ export async function POST(req: NextRequest) {
         organizationType: orgType,
         tags: row.tags ? String(row.tags).trim() : null,
         timeZone,
-        createdBy: "Admin",
-        assignedTo: "Admin",
+        createdBy: username,
+        assignedTo: username,
+      });
+
+      await logCreationActivity({
+        companyType: "org",
+        companyDisplayId: displayId,
+        actionType: "org_created",
+        username,
       });
 
       created.push({ displayId, organizationName: String(row.organizationName).trim() });

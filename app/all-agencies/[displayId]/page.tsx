@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { agencies, agencyClients, contacts, organizations, businesses, proposals, activities } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
@@ -139,7 +139,8 @@ export default async function AgencyDetailPage({ params }: Props) {
   const contactList = await db
     .select()
     .from(contacts)
-    .where(eq(contacts.businessId, displayId));
+    .where(eq(contacts.businessId, displayId))
+    .orderBy(desc(contacts.createdAt));
 
   const infoStyle: React.CSSProperties = {
     marginBottom: "0.5rem",

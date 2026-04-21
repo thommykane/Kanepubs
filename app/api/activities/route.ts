@@ -3,6 +3,11 @@ import { eq, desc, and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { activities, sessions, users, proposals, contacts, businesses, organizations, agencies } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
+import {
+  assignOrgBusinessAndContactsToAgent,
+  getAgencyClientLinkType,
+  firstContactIdForCompany,
+} from "@/lib/agency-lead-assignment";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -128,6 +133,7 @@ export async function GET(req: NextRequest) {
           contactLastName: contacts.lastName,
           businessName: businesses.businessName,
           organizationName: organizations.organizationName,
+          agencyName: agencies.agencyName,
         })
         .from(activities)
         .leftJoin(contacts, eq(activities.contactId, contacts.id))
@@ -143,6 +149,13 @@ export async function GET(req: NextRequest) {
           and(
             eq(activities.companyType, "org"),
             eq(activities.companyDisplayId, organizations.displayId)
+          )
+        )
+        .leftJoin(
+          agencies,
+          and(
+            eq(activities.companyType, "agency"),
+            eq(activities.companyDisplayId, agencies.displayId)
           )
         )
         .orderBy(desc(activities.createdAt))
@@ -168,9 +181,33 @@ export async function GET(req: NextRequest) {
         createdAt: activities.createdAt,
         contactFirstName: contacts.firstName,
         contactLastName: contacts.lastName,
+        businessName: businesses.businessName,
+        organizationName: organizations.organizationName,
+        agencyName: agencies.agencyName,
       })
       .from(activities)
       .leftJoin(contacts, eq(activities.contactId, contacts.id))
+      .leftJoin(
+        businesses,
+        and(
+          eq(activities.companyType, "business"),
+          eq(activities.companyDisplayId, businesses.displayId)
+        )
+      )
+      .leftJoin(
+        organizations,
+        and(
+          eq(activities.companyType, "org"),
+          eq(activities.companyDisplayId, organizations.displayId)
+        )
+      )
+      .leftJoin(
+        agencies,
+        and(
+          eq(activities.companyType, "agency"),
+          eq(activities.companyDisplayId, agencies.displayId)
+        )
+      )
       .where(
         and(
           eq(activities.companyType, companyType),
@@ -258,6 +295,19 @@ export async function POST(req: NextRequest) {
       const companyTypeNorm = String(companyType).trim().toLowerCase();
       const companyDisplayIdNorm = String(companyDisplayId).trim();
       const salesAgent = String(bodySalesAgent).trim();
+      const pdBack = proposalData && typeof proposalData === "object" ? (proposalData as { clientDisplayId?: string }) : null;
+      const regardingBack =
+        companyTypeNorm === "agency" && pdBack?.clientDisplayId
+          ? String(pdBack.clientDisplayId).trim()
+          : null;
+      let regardingBackOk: string | null = null;
+      if (regardingBack) {
+        const lt = await getAgencyClientLinkType(companyDisplayIdNorm, regardingBack);
+        if (!lt) {
+          return NextResponse.json({ error: "Selected client is not linked to this agency" }, { status: 400 });
+        }
+        regardingBackOk = regardingBack;
+      }
 
       await db.insert(activities).values({
         id: activityId,
@@ -287,7 +337,12 @@ export async function POST(req: NextRequest) {
           status: "proposal",
           createdAt: backdatedAt,
           assignedTo: salesAgent,
+          regardingClientDisplayId: regardingBackOk,
         });
+        if (regardingBackOk) {
+          const lt = await getAgencyClientLinkType(companyDisplayIdNorm, regardingBackOk);
+          if (lt) await assignOrgBusinessAndContactsToAgent(regardingBackOk, lt, salesAgent);
+        }
       }
 
       return NextResponse.json({ success: true, id: activityId, proposalId });
@@ -392,10 +447,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid meetingAt date" }, { status: 400 });
     }
 
+    const isAgencyLocal = String(companyType).trim() === "agency";
+    const agencyDisplay = String(companyDisplayId).trim();
+    if (actionTypeTrimmed === "sent_proposal" && proposalData && typeof proposalData === "object") {
+      const pd = proposalData as {
+        amount?: string;
+        issues?: { issue: string; year: string; specialFeatures: string }[];
+        geo?: string;
+        impressions?: number;
+        clientDisplayId?: string;
+      };
+      let effectiveContactId = contactIdVal;
+      if (isAgencyLocal && !effectiveContactId) {
+        effectiveContactId = await firstContactIdForCompany(agencyDisplay);
+      }
+      if (!effectiveContactId) {
+        return NextResponse.json(
+          {
+            error:
+              "Sent Proposal requires at least one contact on this profile (add a contact or expand a contact row).",
+          },
+          { status: 400 }
+        );
+      }
+      if (isAgencyLocal && pd.clientDisplayId && String(pd.clientDisplayId).trim() !== "") {
+        const rid = String(pd.clientDisplayId).trim();
+        const lt = await getAgencyClientLinkType(agencyDisplay, rid);
+        if (!lt) {
+          return NextResponse.json({ error: "Selected client is not linked to this agency" }, { status: 400 });
+        }
+      }
+    }
+
     await db.insert(activities).values({
       id,
       companyType: String(companyType).trim(),
-      companyDisplayId: String(companyDisplayId).trim(),
+      companyDisplayId: agencyDisplay,
       contactId: contactIdVal,
       username,
       actionType: actionTypeTrimmed,
@@ -404,15 +491,37 @@ export async function POST(req: NextRequest) {
       proposalData: proposalData ?? null,
     });
 
-    if (String(actionType).trim() === "sent_proposal" && proposalData && typeof proposalData === "object" && contactIdVal) {
-      const pd = proposalData as { amount?: string; issues?: { issue: string; year: string; specialFeatures: string }[]; geo?: string; impressions?: number };
+    if (actionTypeTrimmed === "sent_proposal" && proposalData && typeof proposalData === "object") {
+      const pd = proposalData as {
+        amount?: string;
+        issues?: { issue: string; year: string; specialFeatures: string }[];
+        geo?: string;
+        impressions?: number;
+        clientDisplayId?: string;
+      };
+      let effectiveContactId = contactIdVal;
+      if (isAgencyLocal && !effectiveContactId) {
+        effectiveContactId = await firstContactIdForCompany(agencyDisplay);
+      }
+      if (!effectiveContactId) {
+        return NextResponse.json({ error: "Missing contact for proposal" }, { status: 400 });
+      }
       const proposalId = uuid();
       const issuesVal = Array.isArray(pd.issues) ? (pd.issues as { issue: string; year: string; specialFeatures: string }[]) : null;
+      let regardingOk: string | null = null;
+      if (isAgencyLocal && pd.clientDisplayId && String(pd.clientDisplayId).trim() !== "") {
+        const rid = String(pd.clientDisplayId).trim();
+        const lt = await getAgencyClientLinkType(agencyDisplay, rid);
+        if (lt) {
+          regardingOk = rid;
+          await assignOrgBusinessAndContactsToAgent(rid, lt, username);
+        }
+      }
       await db.insert(proposals).values({
         id: proposalId,
         companyType: String(companyType).trim(),
-        companyDisplayId: String(companyDisplayId).trim(),
-        contactId: contactIdVal,
+        companyDisplayId: agencyDisplay,
+        contactId: effectiveContactId,
         salesAgent: username,
         amount: pd.amount != null ? String(pd.amount).trim() : null,
         issues: issuesVal,
@@ -423,6 +532,7 @@ export async function POST(req: NextRequest) {
             : null,
         notes: notesTrimmed,
         status: "proposal",
+        regardingClientDisplayId: regardingOk,
       });
     }
 

@@ -7,6 +7,7 @@ import { v4 as uuid } from "uuid";
 import { getTimezoneFromAddress } from "@/lib/timezone-from-address";
 import { getNextDisplayId, getMaxDisplayNumber } from "@/lib/next-display-id";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
+import { logCreationActivity } from "@/lib/log-activity";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -153,6 +154,13 @@ export async function POST(req: NextRequest) {
       timeZone,
       createdBy: username,
       assignedTo: username,
+    });
+
+    await logCreationActivity({
+      companyType: "business",
+      companyDisplayId: displayId,
+      actionType: "business_created",
+      username,
     });
 
     return NextResponse.json({ success: true, id, displayId });
