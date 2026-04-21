@@ -142,4 +142,6 @@ export const proposals = pgTable("proposals", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   statusUpdatedAt: timestamp("status_updated_at"), // when status last changed (e.g. to io or sold)
   assignedTo: text("assigned_to"), // for sold: which sales agent "owns" this client (default salesAgent, admin can reassign)
+  /** Agency deals only: org/business display id chosen in "Client (this call regarding)" when logging Sent Proposal. */
+  regardingClientDisplayId: text("regarding_client_display_id"),
 });
