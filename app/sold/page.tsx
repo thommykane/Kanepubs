@@ -8,6 +8,8 @@ type Proposal = {
   companyType: string;
   companyDisplayId: string;
   contactId: string;
+  /** Agency pipeline: org/business display id from "Client (this call regarding)". */
+  regardingClientDisplayId?: string | null;
   salesAgent: string;
   amount: string | null;
   issues: { issue: string; year: string; specialFeatures: string }[] | null;
@@ -33,6 +35,8 @@ type Row = {
   businessName: string | null;
   organizationName: string | null;
   agencyName: string | null;
+  regardingOrganizationName?: string | null;
+  regardingBusinessName?: string | null;
 };
 
 const ISSUE_OPTIONS = ["Spring", "Summer", "Fall", "Winter", "Holiday Edition", "Special Edition"];
@@ -267,6 +271,18 @@ export default function SoldPage() {
         ? `/all-organizations/${row.proposal.companyDisplayId}`
         : `/all-businesses/${row.proposal.companyDisplayId}`;
 
+  const regardingClientHref = (displayId: string) =>
+    displayId.toUpperCase().startsWith("A")
+      ? `/all-organizations/${displayId}`
+      : `/all-businesses/${displayId}`;
+
+  const regardingClientLabel = (row: Row) => {
+    const name = row.regardingOrganizationName ?? row.regardingBusinessName;
+    if (name) return name;
+    const id = row.proposal.regardingClientDisplayId;
+    return id && id.trim() !== "" ? id : null;
+  };
+
   const addedAt = (row: Row) => {
     const raw = row.proposal.statusUpdatedAt ?? row.proposal.createdAt;
     if (!raw) return "—";
@@ -384,6 +400,26 @@ export default function SoldPage() {
                         </Link>
                       </div>
                     </div>
+                    {row.proposal.companyType === "agency" && (
+                      <div>
+                        <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>Client (this call regarding)</span>
+                        <div style={{ color: "var(--gold-bright)" }}>
+                          {(() => {
+                            const label = regardingClientLabel(row);
+                            const rid = row.proposal.regardingClientDisplayId?.trim();
+                            if (!label && !rid) return "—";
+                            if (rid && label) {
+                              return (
+                                <Link href={regardingClientHref(rid)} style={{ color: "var(--gold-bright)" }}>
+                                  {label}
+                                </Link>
+                              );
+                            }
+                            return label ?? rid ?? "—";
+                          })()}
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>First</span>
                       <div style={{ color: "var(--gold-bright)" }}>{row.contact?.firstName ?? "—"}</div>

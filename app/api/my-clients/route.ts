@@ -37,6 +37,25 @@ async function getCurrentUser(req: NextRequest): Promise<{ username: string; isA
   return { username: user.username, isAdmin: user.isAdmin ?? false };
 }
 
+/** Clients listed under an agency the user closed as sold — include in My Clients even when the org/biz has no direct sale row. */
+async function getDisplayIdsLinkedToAgenciesSoldByUser(username: string): Promise<Set<string>> {
+  const soldAgencyRows = await db
+    .select({ agencyId: agencies.id })
+    .from(proposals)
+    .innerJoin(
+      agencies,
+      and(eq(proposals.companyDisplayId, agencies.displayId), eq(proposals.companyType, "agency"))
+    )
+    .where(and(eq(proposals.status, "sold"), eq(proposals.salesAgent, username)));
+  const agencyIds = [...new Set(soldAgencyRows.map((r) => r.agencyId).filter(Boolean))];
+  if (agencyIds.length === 0) return new Set();
+  const links = await db
+    .select({ companyDisplayId: agencyClients.companyDisplayId })
+    .from(agencyClients)
+    .where(inArray(agencyClients.agencyId, agencyIds));
+  return new Set(links.map((l) => l.companyDisplayId));
+}
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -44,6 +63,7 @@ export async function GET(req: NextRequest) {
   try {
     const current = await getCurrentUser(req);
     if (!current) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const linkedToMySoldAgencies = await getDisplayIdsLinkedToAgenciesSoldByUser(current.username);
     const normalizeCompanyType = (value: string | null | undefined): "org" | "business" | "agency" | null => {
       const t = String(value ?? "").trim().toLowerCase();
       if (t === "org" || t === "organization") return "org";
@@ -191,7 +211,7 @@ export async function GET(req: NextRequest) {
       if (!org.displayId) continue;
       const tx = org.transactions ?? 0;
       const money = org.moneySpent != null ? Number(org.moneySpent) : 0;
-      if (tx < 1 && money <= 0) continue;
+      if (tx < 1 && money <= 0 && !linkedToMySoldAgencies.has(org.displayId)) continue;
       const key = `org:${org.displayId}`;
       if (existingKeys.has(key)) continue;
       const last = lastActivityByCompany.get(key);
@@ -225,7 +245,7 @@ export async function GET(req: NextRequest) {
       if (!biz.displayId) continue;
       const tx = biz.transactions ?? 0;
       const money = biz.moneySpent != null ? Number(biz.moneySpent) : 0;
-      if (tx < 1 && money <= 0) continue;
+      if (tx < 1 && money <= 0 && !linkedToMySoldAgencies.has(biz.displayId)) continue;
       const key = `business:${biz.displayId}`;
       if (existingKeys.has(key)) continue;
       const last = lastActivityByCompany.get(key);
@@ -366,7 +386,15 @@ export async function GET(req: NextRequest) {
       existingKeys.add(key);
     }
 
-    return NextResponse.json(list.filter((row) => row.transactions >= 1 || row.moneySpent > 0));
+    return NextResponse.json(
+      list.filter(
+        (row) =>
+          row.transactions >= 1 ||
+          row.moneySpent > 0 ||
+          (row.companyType === "org" && linkedToMySoldAgencies.has(row.companyDisplayId)) ||
+          (row.companyType === "business" && linkedToMySoldAgencies.has(row.companyDisplayId))
+      )
+    );
   } catch (err) {
     console.error("[api/my-clients GET]", err);
     return NextResponse.json([], { status: 200 });

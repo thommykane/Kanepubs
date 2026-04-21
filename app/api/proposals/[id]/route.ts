@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { proposals, activities, sessions, users, businesses, organizations, agencies, contacts } from "@/lib/db/schema";
 import { v4 as uuid } from "uuid";
+import { assignAgencyAndAllLinkedClientsToAgent } from "@/lib/agency-lead-assignment";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -202,6 +203,8 @@ export async function PATCH(
             })
             .where(eq(agencies.id, a.id));
         }
+        const closer = proposal.salesAgent;
+        await assignAgencyAndAllLinkedClientsToAgent(proposal.companyDisplayId, closer);
       }
 
       return NextResponse.json({ success: true });
