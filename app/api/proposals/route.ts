@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { proposals } from "@/lib/db/schema";
 import { getProposalRowsByStatus } from "@/lib/proposal-rows";
+import { parseProposalDeadlineIso } from "@/lib/proposal-deadline";
 import { v4 as uuid } from "uuid";
 
 export async function GET(req: NextRequest) {
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
       issues,
       geo,
       impressions,
+      deadline,
     } = body;
 
     if (!companyType || !companyDisplayId || !contactId || !salesAgent) {
@@ -54,6 +56,10 @@ export async function POST(req: NextRequest) {
       impressions != null && String(impressions).trim() !== ""
         ? parseInt(String(impressions).replace(/\D/g, "").slice(0, 7), 10)
         : null;
+    const deadlineVal =
+      deadline != null && String(deadline).trim() !== ""
+        ? parseProposalDeadlineIso(String(deadline).trim())
+        : null;
 
     await db.insert(proposals).values({
       id,
@@ -66,6 +72,7 @@ export async function POST(req: NextRequest) {
       geo: geoVal,
       impressions: Number.isInteger(impressionsVal) ? impressionsVal : null,
       status: "proposal",
+      deadline: deadlineVal,
     });
 
     return NextResponse.json({ success: true, id });

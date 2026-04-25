@@ -8,6 +8,7 @@ import {
   getAgencyClientLinkType,
   firstContactIdForCompany,
 } from "@/lib/agency-lead-assignment";
+import { parseProposalDeadlineIso } from "@/lib/proposal-deadline";
 
 async function getCurrentUsername(req: NextRequest): Promise<string> {
   const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
@@ -292,6 +293,9 @@ export async function POST(req: NextRequest) {
         pd?.impressions != null && Number.isInteger(Number(pd.impressions))
           ? Number(pd.impressions)
           : null;
+      const deadlineBackdated = parseProposalDeadlineIso(
+        (pd as { deadline?: string } | null)?.deadline ?? null
+      );
       const companyTypeNorm = String(companyType).trim().toLowerCase();
       const companyDisplayIdNorm = String(companyDisplayId).trim();
       const salesAgent = String(bodySalesAgent).trim();
@@ -335,6 +339,7 @@ export async function POST(req: NextRequest) {
           impressions: impressionsVal,
           notes: notesTrimmed,
           status: "proposal",
+          deadline: deadlineBackdated,
           createdAt: backdatedAt,
           assignedTo: salesAgent,
           regardingClientDisplayId: regardingBackOk,
@@ -393,6 +398,9 @@ export async function POST(req: NextRequest) {
         pd?.impressions != null && Number.isInteger(Number(pd.impressions))
           ? Number(pd.impressions)
           : null;
+      const deadlineSoldBack = parseProposalDeadlineIso(
+        (pd as { deadline?: string } | null)?.deadline ?? null
+      );
       const companyTypeNorm = String(companyType).trim().toLowerCase();
       const companyDisplayIdNorm = String(companyDisplayId).trim();
 
@@ -421,6 +429,7 @@ export async function POST(req: NextRequest) {
         impressions: impressionsVal,
         notes: notesTrimmed,
         status: "sold",
+        deadline: deadlineSoldBack,
         matDue: null,
         createdAt: backdatedAt,
         statusUpdatedAt: backdatedAt,
@@ -449,6 +458,7 @@ export async function POST(req: NextRequest) {
 
     const isAgencyLocal = String(companyType).trim() === "agency";
     const agencyDisplay = String(companyDisplayId).trim();
+    let sentProposalDeadlineForInsert: Date | null = null;
     if (actionTypeTrimmed === "sent_proposal" && proposalData && typeof proposalData === "object") {
       const pd = proposalData as {
         amount?: string;
@@ -456,6 +466,7 @@ export async function POST(req: NextRequest) {
         geo?: string;
         impressions?: number;
         clientDisplayId?: string;
+        deadline?: string;
       };
       let effectiveContactId = contactIdVal;
       if (isAgencyLocal && !effectiveContactId) {
@@ -476,6 +487,13 @@ export async function POST(req: NextRequest) {
         if (!lt) {
           return NextResponse.json({ error: "Selected client is not linked to this agency" }, { status: 400 });
         }
+      }
+      sentProposalDeadlineForInsert = parseProposalDeadlineIso(pd.deadline);
+      if (!sentProposalDeadlineForInsert) {
+        return NextResponse.json(
+          { error: "Deadline date (month, day, year) is required for Sent Proposal." },
+          { status: 400 }
+        );
       }
     }
 
@@ -498,6 +516,7 @@ export async function POST(req: NextRequest) {
         geo?: string;
         impressions?: number;
         clientDisplayId?: string;
+        deadline?: string;
       };
       let effectiveContactId = contactIdVal;
       if (isAgencyLocal && !effectiveContactId) {
@@ -532,6 +551,7 @@ export async function POST(req: NextRequest) {
             : null,
         notes: notesTrimmed,
         status: "proposal",
+        deadline: sentProposalDeadlineForInsert,
         regardingClientDisplayId: regardingOk,
       });
     }

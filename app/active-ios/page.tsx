@@ -15,6 +15,7 @@ type Proposal = {
   impressions: number | null;
   notes: string | null;
   status: string;
+  deadline: string | null;
   createdAt: string;
   statusUpdatedAt?: string | null;
 };
@@ -83,8 +84,24 @@ export default function ActiveIOsPage() {
     }
   };
 
-  const openSoldModal = (id: string) => {
-    setSoldModal({ id });
+  const openSoldModal = (proposalId: string) => {
+    setSoldModal({ id: proposalId });
+    const row = list.find((r) => r.proposal.id === proposalId);
+    const raw = row?.proposal.deadline;
+    if (raw) {
+      const cal = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw).trim());
+      if (cal) {
+        const y = Number(cal[1]);
+        const mo = Number(cal[2]);
+        const d = Number(cal[3]);
+        if (y >= 2021 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+          setMatDueMonth(MONTHS[mo - 1] ?? "");
+          setMatDueDay(String(d));
+          setMatDueYear(String(y));
+          return;
+        }
+      }
+    }
     setMatDueMonth("");
     setMatDueDay("");
     setMatDueYear("");
@@ -98,7 +115,7 @@ export default function ActiveIOsPage() {
     const year = matDueYear || "";
     const matDue = year && month && day ? `${year}-${month}-${day}` : undefined;
     if (!matDue) {
-      alert("Please fill out Materials Due Date (Month, Day, Year).");
+      alert("Please fill out the deadline (month, day, year).");
       return;
     }
     const matDueDate = new Date(year + "-" + month + "-" + day);
@@ -143,6 +160,15 @@ export default function ActiveIOsPage() {
       return new Date(raw).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
     } catch {
       return raw;
+    }
+  };
+
+  const fmtDeadline = (raw: string | null | undefined) => {
+    if (!raw) return "—";
+    try {
+      return new Date(raw).toLocaleDateString("en-US", { dateStyle: "medium" });
+    } catch {
+      return "—";
     }
   };
 
@@ -213,6 +239,10 @@ export default function ActiveIOsPage() {
                 <div>
                   <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>Impressions</span>
                   <div style={{ color: "var(--gold-bright)" }}>{row.proposal.impressions ?? "—"}</div>
+                </div>
+                <div>
+                  <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>Deadline</span>
+                  <div style={{ color: "var(--gold-bright)" }}>{fmtDeadline(row.proposal.deadline)}</div>
                 </div>
                 {row.proposal.notes && (
                   <div style={{ gridColumn: "1 / -1" }}>
@@ -287,7 +317,10 @@ export default function ActiveIOsPage() {
               minWidth: "280px",
             }}
           >
-            <h3 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>Materials Due Date</h3>
+            <h3 style={{ color: "var(--gold-bright)", marginBottom: "0.5rem" }}>Confirm deadline</h3>
+            <p style={{ color: "var(--gold-dim)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+              Pre-filled from the salesperson deadline. Adjust if needed, then confirm SOLD.
+            </p>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
               <select
                 value={matDueMonth}

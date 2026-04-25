@@ -45,6 +45,7 @@ const MONTHS = [
 const DAYS_1_31 = Array.from({ length: 31 }, (_, i) => String(i + 1));
 const MEETING_YEARS = Array.from({ length: 12 }, (_, i) => String(new Date().getFullYear() + i));
 const BACKDATED_YEARS = Array.from({ length: new Date().getFullYear() - 2021 + 1 }, (_, i) => String(2021 + i));
+const DEADLINE_YEARS = Array.from({ length: new Date().getFullYear() - 2021 + 1 }, (_, i) => String(2021 + i));
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
   const h = Math.floor(i / 2);
   const m = (i % 2) * 30;
@@ -99,6 +100,9 @@ export default function CompanyContactsTable({
   const [backdatedMonth, setBackdatedMonth] = useState("");
   const [backdatedDay, setBackdatedDay] = useState("");
   const [backdatedYear, setBackdatedYear] = useState("");
+  const [deadlineMonth, setDeadlineMonth] = useState(() => MONTHS[new Date().getMonth()] ?? "January");
+  const [deadlineDay, setDeadlineDay] = useState(() => String(new Date().getDate()));
+  const [deadlineYear, setDeadlineYear] = useState(() => String(new Date().getFullYear()));
 
   useEffect(() => {
     fetch("/api/me").then((r) => r.json()).then((d) => setIsAdmin(d?.user?.isAdmin ?? false));
@@ -107,6 +111,16 @@ export default function CompanyContactsTable({
 
   const addIssueRow = () => {
     setProposalIssues((p) => [...p, { issue: "Spring", year: "2026", specialFeatures: "None" }]);
+  };
+
+  const removeIssueRow = (index: number) => {
+    setProposalIssues((p) => (p.length <= 1 ? p : p.filter((_, i) => i !== index)));
+  };
+
+  const buildDeadlineIso = () => {
+    const mi = MONTHS.indexOf(deadlineMonth);
+    if (mi < 0 || !deadlineDay || !deadlineYear) return null;
+    return `${deadlineYear}-${String(mi + 1).padStart(2, "0")}-${deadlineDay.padStart(2, "0")}`;
   };
 
   const updateIssue = (index: number, field: "issue" | "year" | "specialFeatures", value: string) => {
@@ -140,11 +154,13 @@ export default function CompanyContactsTable({
           body.meetingAt = `${year}-${month}-${day}T${time}:00`;
         }
         if (actionValue === "sent_proposal" || actionValue === "backdated_proposal" || actionValue === "backdated_sold") {
+          const dl = buildDeadlineIso();
           body.proposalData = {
             amount: proposalAmount || undefined,
             issues: proposalIssues.filter((i) => i.issue),
             geo: proposalGeo || undefined,
             impressions: proposalImpressions ? parseInt(proposalImpressions.replace(/\D/g, "").slice(0, 7), 10) : undefined,
+            ...(dl ? { deadline: dl } : {}),
             ...(companyType === "agency" && activityClientDisplayId ? { clientDisplayId: activityClientDisplayId } : {}),
           };
         }
@@ -186,6 +202,10 @@ export default function CompanyContactsTable({
           setBackdatedDay("");
           setBackdatedYear("");
           setActivityClientDisplayId("");
+          const n = new Date();
+          setDeadlineMonth(MONTHS[n.getMonth()] ?? "January");
+          setDeadlineDay(String(n.getDate()));
+          setDeadlineYear(String(n.getFullYear()));
           onActivityCreated?.();
         }
       } finally {
@@ -203,6 +223,9 @@ export default function CompanyContactsTable({
       proposalIssues,
       proposalGeo,
       proposalImpressions,
+      deadlineMonth,
+      deadlineDay,
+      deadlineYear,
       backdatedSalesAgent,
       backdatedMonth,
       backdatedDay,
@@ -512,6 +535,24 @@ export default function CompanyContactsTable({
                                         <option key={s} value={s}>{s}</option>
                                       ))}
                                     </select>
+                                    {proposalIssues.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeIssueRow(idx)}
+                                        aria-label="Remove issue row"
+                                        style={{
+                                          padding: "0.25rem 0.5rem",
+                                          background: "var(--glass)",
+                                          border: "1px solid var(--glass-border)",
+                                          borderRadius: "4px",
+                                          color: "#e57373",
+                                          cursor: "pointer",
+                                          fontSize: "1rem",
+                                        }}
+                                      >
+                                        −
+                                      </button>
+                                    )}
                                     {idx === proposalIssues.length - 1 && (
                                       <button
                                         type="button"
@@ -543,6 +584,41 @@ export default function CompanyContactsTable({
                                   <option value="Yes">Yes</option>
                                 </select>
                               </label>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Deadline</span>
+                                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+                                  <select
+                                    value={deadlineMonth}
+                                    onChange={(e) => setDeadlineMonth(e.target.value)}
+                                    style={{ ...inputStyle, minWidth: "110px" }}
+                                  >
+                                    <option value="">Month</option>
+                                    {MONTHS.map((m) => (
+                                      <option key={m} value={m}>{m}</option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    value={deadlineDay}
+                                    onChange={(e) => setDeadlineDay(e.target.value)}
+                                    style={{ ...inputStyle, minWidth: "70px" }}
+                                  >
+                                    <option value="">Day</option>
+                                    {DAYS_1_31.map((d) => (
+                                      <option key={d} value={d}>{d}</option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    value={deadlineYear}
+                                    onChange={(e) => setDeadlineYear(e.target.value)}
+                                    style={{ ...inputStyle, minWidth: "80px" }}
+                                  >
+                                    <option value="">Year</option>
+                                    {DEADLINE_YEARS.map((y) => (
+                                      <option key={y} value={y}>{y}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
                               {proposalGeo === "Yes" && (
                                 <label>
                                   <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Impressions</span>
@@ -619,6 +695,8 @@ export default function CompanyContactsTable({
                             disabled={
                               submitting ||
                               !action ||
+                              ((action === "Sent Proposal" || action === "Backdated Proposal" || action === "Backdated Sold") &&
+                                !buildDeadlineIso()) ||
                               ((action === "Backdated Proposal" || action === "Backdated Sold") &&
                                 (!backdatedSalesAgent || !backdatedMonth || !backdatedDay || !backdatedYear)) ||
                               (action === "Backdated Sold" && companyType === "agency" && c.id === "__agency_no_contact__")

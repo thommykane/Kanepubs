@@ -15,6 +15,7 @@ type Proposal = {
   impressions: number | null;
   notes: string | null;
   status: string;
+  deadline: string | null;
   createdAt: string;
   statusUpdatedAt?: string | null;
 };
@@ -110,6 +111,15 @@ export default function ActiveProposalsPage() {
     }
   };
 
+  const fmtDeadline = (raw: string | null | undefined) => {
+    if (!raw) return "—";
+    try {
+      return new Date(raw).toLocaleDateString("en-US", { dateStyle: "medium" });
+    } catch {
+      return "—";
+    }
+  };
+
   return (
     <div style={{ width: "100%", padding: "1rem 0" }}>
       <h1 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>Active Proposals</h1>
@@ -177,6 +187,10 @@ export default function ActiveProposalsPage() {
                 <div>
                   <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>Impressions</span>
                   <div style={{ color: "var(--gold-bright)" }}>{row.proposal.impressions ?? "—"}</div>
+                </div>
+                <div>
+                  <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>Deadline</span>
+                  <div style={{ color: "var(--gold-bright)" }}>{fmtDeadline(row.proposal.deadline)}</div>
                 </div>
                 {row.proposal.notes && (
                   <div style={{ gridColumn: "1 / -1" }}>

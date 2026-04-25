@@ -449,7 +449,7 @@ export default function SoldPage() {
                       <div style={{ color: "var(--gold-bright)" }}>{row.proposal.impressions ?? "—"}</div>
                     </div>
                     <div>
-                      <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>MAT DUE</span>
+                      <span style={{ color: "var(--gold-dim)", fontSize: "0.75rem" }}>Deadline</span>
                       <div style={{ color: "var(--gold-bright)" }}>{formatMatDue(row.proposal.matDue)}</div>
                     </div>
                     {row.proposal.notes && (
@@ -706,7 +706,7 @@ export default function SoldPage() {
                 />
               </label>
               <div>
-                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>MAT DUE</span>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Deadline</span>
                 <div style={{ display: "flex", gap: "0.5rem", marginTop: "4px" }}>
                   <select
                     value={editMatDueMonth}

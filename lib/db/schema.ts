@@ -138,6 +138,8 @@ export const proposals = pgTable("proposals", {
   impressions: integer("impressions"),
   notes: text("notes"), // max 50 chars, from agent at sent_proposal
   status: text("status").notNull(), // 'proposal' | 'io' | 'passed' | 'rejected' | 'sold'
+  /** Salesperson target date when logging Sent Proposal (shown on Active Proposals / IOs; pre-fills SOLD materials date). */
+  deadline: timestamp("deadline"),
   matDue: timestamp("mat_due"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   statusUpdatedAt: timestamp("status_updated_at"), // when status last changed (e.g. to io or sold)
