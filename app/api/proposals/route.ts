@@ -22,7 +22,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(rows);
   } catch (err) {
     console.error("[api/proposals GET]", err);
-    return NextResponse.json([], { status: 200 });
+    const message = err instanceof Error ? err.message : "Failed to load proposals";
+    return NextResponse.json(
+      {
+        error: message,
+        hint:
+          /deadline|column/i.test(message)
+            ? "The database is missing the proposals.deadline column. Run npm run db:push against production, or execute: ALTER TABLE proposals ADD COLUMN IF NOT EXISTS deadline timestamp;"
+            : undefined,
+      },
+      { status: 500 }
+    );
   }
 }
 

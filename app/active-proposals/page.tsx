@@ -38,6 +38,7 @@ type Row = {
 
 export default function ActiveProposalsPage() {
   const [list, setList] = useState<Row[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -51,6 +52,14 @@ export default function ActiveProposalsPage() {
   const fetchList = useCallback(async () => {
     const res = await fetch("/api/proposals?status=proposal", { cache: "no-store" });
     const data = await res.json();
+    if (!res.ok) {
+      const base = (data?.error as string) || res.statusText || "Could not load proposals.";
+      const hint = typeof data?.hint === "string" ? ` ${data.hint}` : "";
+      setListError(base + hint);
+      setList([]);
+      return;
+    }
+    setListError(null);
     setList(Array.isArray(data) ? data : []);
   }, []);
 
@@ -125,6 +134,22 @@ export default function ActiveProposalsPage() {
       <h1 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>Active Proposals</h1>
       {loading ? (
         <p style={{ color: "var(--gold-dim)" }}>Loading…</p>
+      ) : listError ? (
+        <div
+          role="alert"
+          style={{
+            padding: "1rem 1.25rem",
+            borderRadius: "8px",
+            border: "1px solid #c44",
+            background: "rgba(200,50,50,0.12)",
+            color: "var(--gold-bright)",
+            marginBottom: "1rem",
+            lineHeight: 1.5,
+          }}
+        >
+          <strong>Could not load proposals.</strong> Your data is usually still in the database; this is often a schema mismatch after an app update.
+          <div style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: "var(--gold-dim)" }}>{listError}</div>
+        </div>
       ) : list.length === 0 ? (
         <p style={{ color: "var(--gold-dim)" }}>No active proposals.</p>
       ) : (

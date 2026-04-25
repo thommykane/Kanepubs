@@ -50,6 +50,7 @@ const PREVIOUS_YEAR_OPTIONS = ["2025", "2024", "2023", "2022", "2021"];
 
 export default function SoldPage() {
   const [list, setList] = useState<Row[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [users, setUsers] = useState<{ id: string; username: string }[]>([]);
@@ -72,6 +73,14 @@ export default function SoldPage() {
   const fetchList = useCallback(async () => {
     const res = await fetch("/api/proposals?status=sold", { cache: "no-store" });
     const data = await res.json();
+    if (!res.ok) {
+      const base = (data?.error as string) || res.statusText || "Could not load sold deals.";
+      const hint = typeof data?.hint === "string" ? ` ${data.hint}` : "";
+      setListError(base + hint);
+      setList([]);
+      return;
+    }
+    setListError(null);
     setList(Array.isArray(data) ? data : []);
   }, []);
 
@@ -297,7 +306,7 @@ export default function SoldPage() {
     <div style={{ width: "100%", padding: "1rem 0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
         <h1 style={{ color: "var(--gold-bright)", margin: 0 }}>SOLD</h1>
-        {!loading && list.length > 0 && (
+        {!loading && !listError && list.length > 0 && (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
               <label style={{ color: "var(--gold-dim)", fontSize: "0.875rem" }}>
@@ -352,6 +361,22 @@ export default function SoldPage() {
       </div>
       {loading ? (
         <p style={{ color: "var(--gold-dim)" }}>Loading…</p>
+      ) : listError ? (
+        <div
+          role="alert"
+          style={{
+            padding: "1rem 1.25rem",
+            borderRadius: "8px",
+            border: "1px solid #c44",
+            background: "rgba(200,50,50,0.12)",
+            color: "var(--gold-bright)",
+            marginBottom: "1rem",
+            lineHeight: 1.5,
+          }}
+        >
+          <strong>Could not load sold deals.</strong> Your data is usually still in the database; this is often a schema mismatch after an app update.
+          <div style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: "var(--gold-dim)" }}>{listError}</div>
+        </div>
       ) : list.length === 0 ? (
         <p style={{ color: "var(--gold-dim)" }}>No sold deals yet.</p>
       ) : groupedByMonthYear.length === 0 ? (
