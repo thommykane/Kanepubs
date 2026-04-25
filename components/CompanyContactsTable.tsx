@@ -163,6 +163,12 @@ export default function CompanyContactsTable({
           body: JSON.stringify(body),
           credentials: "include",
         });
+        if (!res.ok) {
+          const errJson = (await res.json().catch(() => ({}))) as { error?: string };
+          window.alert(
+            errJson.error ?? res.statusText ?? "Activity could not be saved. If you are logged in, try refreshing the page."
+          );
+        }
         if (res.ok) {
           setExpandedContactId(null);
           setAction("");

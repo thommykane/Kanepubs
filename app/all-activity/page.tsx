@@ -249,6 +249,11 @@ export default function AllActivityPage() {
               const amountLabel = amountVal != null && !Number.isNaN(amountVal)
                 ? ` $${amountVal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : "";
+              const contactLine =
+                ["org_created", "business_created", "agency_created"].includes(a.actionType)
+                  ? null
+                  : [a.contactFirstName, a.contactLastName].filter(Boolean).join(" ") || "Contact";
+
               return (
                 <li
                   key={a.id}
@@ -259,8 +264,23 @@ export default function AllActivityPage() {
                     fontSize: "0.8rem",
                   }}
                 >
-                  <span style={config.style}>{config.label}{amountLabel}</span>
-                  <div style={{ color: "var(--gold-dim)", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      color: "var(--gold-bright)",
+                      fontWeight: 700,
+                      fontSize: "0.95rem",
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {a.username}
+                  </div>
+                  <div style={{ marginTop: "6px" }}>
+                    <span style={{ ...config.style, fontWeight: 600 }}>
+                      {config.label}
+                      {amountLabel}
+                    </span>
+                  </div>
+                  <div style={{ color: "var(--gold-dim)", marginTop: "4px" }}>
                     <Link
                       href={companyHref(a)}
                       style={{ color: "var(--gold-bright)", textDecoration: "none" }}
@@ -269,8 +289,8 @@ export default function AllActivityPage() {
                     </Link>
                   </div>
                   {a.actionType === "scheduled_meeting" && a.meetingAt && (
-                    <div style={{ color: "#fff", marginTop: "2px" }}>
-                      {formatDate(a.meetingAt)}
+                    <div style={{ color: "#fff", marginTop: "4px" }}>
+                      Meeting: {formatDate(a.meetingAt)}
                     </div>
                   )}
                   {a.actionType === "sent_proposal" && a.proposalData != null && typeof a.proposalData === "object"
@@ -281,14 +301,11 @@ export default function AllActivityPage() {
                       )
                     : null}
                   {a.actionType !== "scheduled_meeting" && a.actionType !== "sent_proposal" && a.notes && (
-                    <div style={{ color: "var(--gold-dim)", marginTop: "2px" }}>{a.notes}</div>
+                    <div style={{ color: "var(--gold-dim)", marginTop: "4px" }}>{a.notes}</div>
                   )}
-                  <div style={{ color: "var(--gold-dim)", marginTop: "4px" }}>
-                    {["org_created", "business_created", "agency_created"].includes(a.actionType)
-                      ? "—"
-                      : [a.contactFirstName, a.contactLastName].filter(Boolean).join(" ") || "Contact"}
-                    {" · "}
-                    {a.username} · {formatDate(a.createdAt)}
+                  <div style={{ color: "var(--gold-dim)", marginTop: "6px", fontSize: "0.75rem" }}>
+                    {contactLine != null ? `${contactLine} · ` : ""}
+                    {formatDate(a.createdAt)}
                   </div>
                 </li>
               );

@@ -94,6 +94,7 @@ export default function NewAgencyPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, clients: clientIds }),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {

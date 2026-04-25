@@ -127,6 +127,7 @@ function NewBusinessForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(submitPayload),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {
@@ -140,6 +141,7 @@ function NewBusinessForm() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ companyDisplayId: data.displayId, companyType: "business" }),
+          credentials: "include",
         });
         if (!linkRes.ok) {
           setErrorMessage("Business created, but failed to link to agency.");

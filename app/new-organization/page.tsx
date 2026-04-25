@@ -113,6 +113,7 @@ function NewOrganizationForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(submitPayload),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) {
@@ -132,6 +133,7 @@ function NewOrganizationForm() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ companyDisplayId: data.displayId, companyType: "org" }),
+          credentials: "include",
         });
         if (!linkRes.ok) {
           setErrorMessage("Organization created, but failed to link to agency.");
