@@ -3,8 +3,10 @@ import { and, eq, inArray, or, sql, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { agencies, agencyClients, contacts, organizations, businesses, proposals, activities } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
+import { buildAgencyPlainText } from "@/lib/plain-text-profile";
 import AgencyProfileContent from "@/components/AgencyProfileContent";
 import AgencyAssignedToEdit from "@/components/AgencyAssignedToEdit";
+import PlainTextCompanyExport from "@/components/PlainTextCompanyExport";
 
 type Props = { params: Promise<{ displayId: string }> };
 
@@ -142,6 +144,14 @@ export default async function AgencyDetailPage({ params }: Props) {
     .where(eq(contacts.businessId, displayId))
     .orderBy(desc(contacts.createdAt));
 
+  const plainText = buildAgencyPlainText({
+    agency,
+    transactions,
+    moneySpentRaw,
+    clients,
+    contacts: contactList,
+  });
+
   const infoStyle: React.CSSProperties = {
     marginBottom: "0.5rem",
     fontSize: "0.9375rem",
@@ -166,9 +176,21 @@ export default async function AgencyDetailPage({ params }: Props) {
         >
           ← All Agencies
         </Link>
-        <h1 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>
-          {agency.agencyName ?? "—"}
-        </h1>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            flexWrap: "wrap",
+            marginBottom: "1rem",
+          }}
+        >
+          <h1 style={{ color: "var(--gold-bright)", margin: 0, flex: "1 1 200px" }}>
+            {agency.agencyName ?? "—"}
+          </h1>
+          <PlainTextCompanyExport plainText={plainText} />
+        </div>
         <div
           style={{
             background: "var(--glass)",

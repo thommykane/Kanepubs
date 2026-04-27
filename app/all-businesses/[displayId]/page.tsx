@@ -3,7 +3,9 @@ import { and, eq, sql, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { businesses, contacts, proposals, agencyClients, agencies } from "@/lib/db/schema";
 import { normalizeWebsiteUrl } from "@/lib/normalize-website-url";
+import { buildBusinessPlainText } from "@/lib/plain-text-profile";
 import CompanyProfileContent from "@/components/CompanyProfileContent";
+import PlainTextCompanyExport from "@/components/PlainTextCompanyExport";
 
 type Props = { params: Promise<{ displayId: string }> };
 
@@ -58,6 +60,16 @@ export default async function BusinessDetailPage({ params }: Props) {
     .where(eq(contacts.businessId, displayId))
     .orderBy(desc(contacts.createdAt));
 
+  const plainText = buildBusinessPlainText({
+    business,
+    transactions,
+    moneySpentRaw,
+    agency: agencyLink
+      ? { agencyName: agencyLink.agencyName, agencyDisplayId: agencyLink.agencyDisplayId }
+      : null,
+    contacts: contactList,
+  });
+
   const infoStyle: React.CSSProperties = {
     marginBottom: "0.5rem",
     fontSize: "0.9375rem",
@@ -82,9 +94,21 @@ export default async function BusinessDetailPage({ params }: Props) {
         >
           ← All Businesses
         </Link>
-        <h1 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>
-          {business.businessName ?? "—"}
-        </h1>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            flexWrap: "wrap",
+            marginBottom: "1rem",
+          }}
+        >
+          <h1 style={{ color: "var(--gold-bright)", margin: 0, flex: "1 1 200px" }}>
+            {business.businessName ?? "—"}
+          </h1>
+          <PlainTextCompanyExport plainText={plainText} />
+        </div>
         <div
           style={{
             background: "var(--glass)",
