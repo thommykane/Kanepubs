@@ -30,7 +30,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { status, matDue, adminEdit, salesAgent, assignedTo, amount, issues, geo, impressions, notes, contactId: bodyContactId } = body;
+    const { status, matDue, deadline, adminEdit, salesAgent, assignedTo, amount, issues, geo, impressions, notes, contactId: bodyContactId } = body;
 
     const [proposal] = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
     if (!proposal) {
@@ -39,10 +39,19 @@ export async function PATCH(
 
     const username = await getCurrentUsername(req);
 
-    // Admin-only edit of proposal fields (for SOLD and other statuses)
+    // Edit proposal fields: admins for any status; any logged-in user for active proposals
     if (adminEdit === true) {
       const isAdmin = await requireAdmin(req);
-      if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      const isActiveProposal = proposal.status === "proposal";
+      if (!isAdmin && !isActiveProposal) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!isAdmin) {
+        const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
+        if (!sessionId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+        if (!session || new Date(session.expiresAt) < new Date()) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      }
       const updates: Record<string, unknown> = {};
       if (salesAgent != null && String(salesAgent).trim() !== "")
         updates.salesAgent = String(salesAgent).trim();
@@ -61,6 +70,10 @@ export async function PATCH(
       if (matDue !== undefined) {
         const matDueVal = matDue != null && String(matDue).trim() !== "" ? new Date(matDue) : null;
         updates.matDue = matDueVal && !isNaN(matDueVal.getTime()) ? matDueVal : null;
+      }
+      if (deadline !== undefined) {
+        const deadlineVal = deadline != null && String(deadline).trim() !== "" ? new Date(deadline) : null;
+        updates.deadline = deadlineVal && !isNaN(deadlineVal.getTime()) ? deadlineVal : null;
       }
       if (notes !== undefined)
         updates.notes = notes != null && String(notes).trim() !== "" ? String(notes).trim().slice(0, 50) : null;

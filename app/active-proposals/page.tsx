@@ -36,17 +36,40 @@ type Row = {
   agencyName: string | null;
 };
 
+const ISSUE_OPTIONS = ["Spring", "Summer", "Fall", "Winter", "Holiday Edition", "Special Edition"];
+const YEARS = Array.from({ length: 11 }, (_, i) => String(2020 + i));
+const SPECIAL_FEATURES = ["None", "Inside Front Cover", "Inside Back Cover", "Back Cover", "Inside Front Spread", "Inside Back Spread", "Spread"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DAYS_1_31 = Array.from({ length: 31 }, (_, i) => String(i + 1));
+const DEADLINE_YEARS = Array.from({ length: 12 }, (_, i) => String(new Date().getFullYear() + i));
+
 export default function ActiveProposalsPage() {
   const [list, setList] = useState<Row[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [users, setUsers] = useState<{ id: string; username: string }[]>([]);
+  const [editModal, setEditModal] = useState<Row | null>(null);
+  const [editContactId, setEditContactId] = useState("");
+  const [companyContacts, setCompanyContacts] = useState<{ id: string; firstName: string | null; lastName: string | null }[]>([]);
+  const [editSalesAgent, setEditSalesAgent] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editIssues, setEditIssues] = useState<{ issue: string; year: string; specialFeatures: string }[]>([{ issue: "Spring", year: "2026", specialFeatures: "None" }]);
+  const [editGeo, setEditGeo] = useState("");
+  const [editImpressions, setEditImpressions] = useState("");
+  const [editDeadlineMonth, setEditDeadlineMonth] = useState("");
+  const [editDeadlineDay, setEditDeadlineDay] = useState("");
+  const [editDeadlineYear, setEditDeadlineYear] = useState("");
+  const [editNotes, setEditNotes] = useState("");
 
   useEffect(() => {
     fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setIsAdmin(data?.user?.isAdmin ?? false));
+    fetch("/api/users", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setUsers(Array.isArray(d) ? d : []));
   }, []);
 
   const fetchList = useCallback(async () => {
@@ -91,6 +114,83 @@ export default function ActiveProposalsPage() {
         body: JSON.stringify({ status: "io" }),
       });
       if (res.ok) await fetchList();
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const openEditModal = async (row: Row) => {
+    setEditModal(row);
+    setEditContactId(row.proposal.contactId);
+    setEditSalesAgent(row.proposal.salesAgent);
+    const res = await fetch(`/api/contacts?businessId=${encodeURIComponent(row.proposal.companyDisplayId)}`);
+    const contactsList = await res.json();
+    setCompanyContacts(Array.isArray(contactsList) ? contactsList.map((c: { id: string; firstName?: string | null; lastName?: string | null }) => ({ id: c.id, firstName: c.firstName ?? null, lastName: c.lastName ?? null })) : []);
+    setEditAmount(row.proposal.amount ?? "");
+    setEditIssues(row.proposal.issues && row.proposal.issues.length > 0 ? row.proposal.issues.map((i) => ({ ...i })) : [{ issue: "Spring", year: "2026", specialFeatures: "None" }]);
+    setEditGeo(row.proposal.geo ?? "");
+    setEditImpressions(row.proposal.impressions != null ? String(row.proposal.impressions) : "");
+    setEditNotes(row.proposal.notes ?? "");
+    if (row.proposal.deadline) {
+      try {
+        const d = new Date(row.proposal.deadline);
+        setEditDeadlineMonth(MONTHS[d.getMonth()] ?? "");
+        setEditDeadlineDay(String(d.getDate()));
+        setEditDeadlineYear(String(d.getFullYear()));
+      } catch {
+        setEditDeadlineMonth("");
+        setEditDeadlineDay("");
+        setEditDeadlineYear("");
+      }
+    } else {
+      setEditDeadlineMonth("");
+      setEditDeadlineDay("");
+      setEditDeadlineYear("");
+    }
+  };
+
+  const updateEditIssue = (index: number, field: "issue" | "year" | "specialFeatures", value: string) => {
+    setEditIssues((p) => {
+      const next = [...p];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const addEditIssueRow = () => setEditIssues((p) => [...p, { issue: "Spring", year: "2026", specialFeatures: "None" }]);
+
+  const handleSaveEdit = async () => {
+    if (!editModal) return;
+    setActioningId(editModal.proposal.id);
+    try {
+      const monthIdx = MONTHS.indexOf(editDeadlineMonth);
+      const month = monthIdx >= 0 ? String(monthIdx + 1).padStart(2, "0") : "";
+      const day = editDeadlineDay ? editDeadlineDay.padStart(2, "0") : "";
+      const year = editDeadlineYear || "";
+      const deadline = year && month && day ? `${year}-${month}-${day}` : null;
+      const issuesVal = editIssues.filter((i) => i.issue).length > 0 ? editIssues.filter((i) => i.issue) : null;
+      const res = await fetch(`/api/proposals/${editModal.proposal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminEdit: true,
+          contactId: editContactId || undefined,
+          salesAgent: editSalesAgent,
+          amount: editAmount || null,
+          issues: issuesVal,
+          geo: editGeo || null,
+          impressions: editImpressions ? parseInt(editImpressions.replace(/\D/g, "").slice(0, 7), 10) : null,
+          deadline,
+          notes: editNotes.slice(0, 50) || null,
+        }),
+      });
+      if (res.ok) {
+        setEditModal(null);
+        await fetchList();
+      } else {
+        const data = await res.json();
+        alert(data?.error ?? "Failed to save");
+      }
     } finally {
       setActioningId(null);
     }
@@ -227,6 +327,22 @@ export default function ActiveProposalsPage() {
               <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
                 <button
                   type="button"
+                  onClick={() => openEditModal(row)}
+                  disabled={actioningId !== null}
+                  style={{
+                    padding: "0.4rem 0.75rem",
+                    background: "var(--gold)",
+                    color: "var(--bg)",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    cursor: actioningId !== null ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
                   onClick={() => handlePassed(row.proposal.id)}
                   disabled={actioningId !== null || !isAdmin}
                   style={{
@@ -263,6 +379,313 @@ export default function ActiveProposalsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {editModal && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 50 }}
+            onClick={() => setEditModal(null)}
+          />
+          <div
+            style={{
+              position: "fixed",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "var(--glass-dark)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: "8px",
+              padding: "1.5rem",
+              zIndex: 51,
+              minWidth: "360px",
+              maxWidth: "90vw",
+              maxHeight: "85vh",
+              overflow: "auto",
+            }}
+          >
+            <h3 style={{ color: "var(--gold-bright)", marginBottom: "1rem" }}>Edit Proposal</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
+              <label>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Contact</span>
+                <select
+                  value={editContactId}
+                  onChange={(e) => setEditContactId(e.target.value)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.5rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    marginTop: "4px",
+                  }}
+                >
+                  {companyContacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {[c.firstName, c.lastName].filter(Boolean).join(" ") || c.id}
+                    </option>
+                  ))}
+                  {editContactId && !companyContacts.some((c) => c.id === editContactId) && (
+                    <option value={editContactId}>
+                      {editModal?.contact ? [editModal.contact.firstName, editModal.contact.lastName].filter(Boolean).join(" ") || editContactId : editContactId}
+                    </option>
+                  )}
+                  {companyContacts.length === 0 && !editContactId && <option value="">No contacts for this company</option>}
+                </select>
+              </label>
+              <label>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Sales Agent</span>
+                <select
+                  value={editSalesAgent}
+                  onChange={(e) => setEditSalesAgent(e.target.value)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.5rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    marginTop: "4px",
+                  }}
+                >
+                  {users.map((u) => (
+                    <option key={u.id} value={u.username}>{u.username}</option>
+                  ))}
+                  {editSalesAgent && !users.some((u) => u.username === editSalesAgent) && (
+                    <option value={editSalesAgent}>{editSalesAgent}</option>
+                  )}
+                  {users.length === 0 && !editSalesAgent && <option value="">—</option>}
+                </select>
+              </label>
+              <label>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Amount ($)</span>
+                <input
+                  type="text"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.5rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    marginTop: "4px",
+                  }}
+                />
+              </label>
+              <div>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Issue(s)</span>
+                {editIssues.map((issueRow, idx) => (
+                  <div key={idx} style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center", marginTop: "4px" }}>
+                    <select
+                      value={issueRow.issue}
+                      onChange={(e) => updateEditIssue(idx, "issue", e.target.value)}
+                      style={{
+                        padding: "0.35rem",
+                        background: "var(--glass)",
+                        border: "1px solid var(--glass-border)",
+                        borderRadius: "4px",
+                        color: "var(--gold-bright)",
+                        minWidth: "100px",
+                      }}
+                    >
+                      {ISSUE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <select
+                      value={issueRow.year}
+                      onChange={(e) => updateEditIssue(idx, "year", e.target.value)}
+                      style={{
+                        padding: "0.35rem",
+                        background: "var(--glass)",
+                        border: "1px solid var(--glass-border)",
+                        borderRadius: "4px",
+                        color: "var(--gold-bright)",
+                        minWidth: "70px",
+                      }}
+                    >
+                      {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                    <select
+                      value={issueRow.specialFeatures}
+                      onChange={(e) => updateEditIssue(idx, "specialFeatures", e.target.value)}
+                      style={{
+                        padding: "0.35rem",
+                        background: "var(--glass)",
+                        border: "1px solid var(--glass-border)",
+                        borderRadius: "4px",
+                        color: "var(--gold-bright)",
+                        minWidth: "120px",
+                      }}
+                    >
+                      {SPECIAL_FEATURES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {idx === editIssues.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={addEditIssueRow}
+                        style={{
+                          padding: "0.25rem 0.5rem",
+                          background: "var(--glass)",
+                          border: "1px solid var(--glass-border)",
+                          borderRadius: "4px",
+                          color: "var(--gold-bright)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <label>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Geo</span>
+                <select
+                  value={editGeo}
+                  onChange={(e) => setEditGeo(e.target.value)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.5rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    marginTop: "4px",
+                  }}
+                >
+                  <option value="">—</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </label>
+              <label>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Impressions</span>
+                <input
+                  type="text"
+                  value={editImpressions}
+                  onChange={(e) => setEditImpressions(e.target.value.replace(/\D/g, "").slice(0, 7))}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.5rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    marginTop: "4px",
+                  }}
+                />
+              </label>
+              <div>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Deadline</span>
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "4px" }}>
+                  <select
+                    value={editDeadlineMonth}
+                    onChange={(e) => setEditDeadlineMonth(e.target.value)}
+                    style={{
+                      padding: "0.5rem",
+                      background: "var(--glass)",
+                      border: "1px solid var(--glass-border)",
+                      borderRadius: "6px",
+                      color: "var(--gold-bright)",
+                      minWidth: "100px",
+                    }}
+                  >
+                    <option value="">Month</option>
+                    {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <select
+                    value={editDeadlineDay}
+                    onChange={(e) => setEditDeadlineDay(e.target.value)}
+                    style={{
+                      padding: "0.5rem",
+                      background: "var(--glass)",
+                      border: "1px solid var(--glass-border)",
+                      borderRadius: "6px",
+                      color: "var(--gold-bright)",
+                      minWidth: "70px",
+                    }}
+                  >
+                    <option value="">Day</option>
+                    {DAYS_1_31.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <select
+                    value={editDeadlineYear}
+                    onChange={(e) => setEditDeadlineYear(e.target.value)}
+                    style={{
+                      padding: "0.5rem",
+                      background: "var(--glass)",
+                      border: "1px solid var(--glass-border)",
+                      borderRadius: "6px",
+                      color: "var(--gold-bright)",
+                      minWidth: "80px",
+                    }}
+                  >
+                    <option value="">Year</option>
+                    {DEADLINE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
+              <label>
+                <span style={{ color: "var(--gold-dim)", fontSize: "0.8rem" }}>Notes (max 50)</span>
+                <input
+                  type="text"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value.slice(0, 50))}
+                  maxLength={50}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.5rem",
+                    background: "var(--glass)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "6px",
+                    color: "var(--gold-bright)",
+                    marginTop: "4px",
+                  }}
+                />
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setEditModal(null)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "transparent",
+                  border: "1px solid var(--glass-border)",
+                  borderRadius: "6px",
+                  color: "var(--gold-bright)",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={actioningId !== null}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "var(--gold)",
+                  color: "var(--bg)",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontWeight: 600,
+                  cursor: actioningId !== null ? "not-allowed" : "pointer",
+                }}
+              >
+                {actioningId !== null ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

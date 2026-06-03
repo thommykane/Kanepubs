@@ -26,14 +26,22 @@ async function requireAdmin(req: NextRequest): Promise<boolean> {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+async function requireSession(req: NextRequest): Promise<boolean> {
+  const sessionId = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1];
+  if (!sessionId) return false;
+  const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  return !!(session && new Date(session.expiresAt) >= new Date());
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const isAdmin = await requireAdmin(req);
-    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId")?.trim();
     if (businessId) {
+      const isAdmin = await requireAdmin(req);
+      if (!isAdmin && !(await requireSession(req))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       const list = await db
         .select()
         .from(contacts)
@@ -41,6 +49,8 @@ export async function GET(req: NextRequest) {
         .orderBy(desc(contacts.createdAt));
       return NextResponse.json(list);
     }
+    const isAdmin = await requireAdmin(req);
+    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const list = await db
       .select({
         id: contacts.id,
